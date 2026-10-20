@@ -16,6 +16,7 @@ import { healthRoutes } from './modules/health/health.routes';
 import { templateRoutes } from './modules/templates/templates.routes';
 import type { CertificateQueue } from './jobs/queues';
 import { batchRoutes } from './modules/batches/batches.routes';
+import { verifyRoutes } from './modules/verify/verify.routes';
 
 /**
  * Everything the HTTP layer needs, passed in rather than imported, so tests can build the app
@@ -94,6 +95,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       await api.register(
         batchRoutes({ prisma: deps.prisma, storage: deps.storage, queue: deps.queue, session }),
       );
+      await api.register(verifyRoutes({ prisma: deps.prisma }));
     },
     { prefix: '/api' },
   );

@@ -85,6 +85,7 @@ export const CertificateRowSchema = z.object({
   status: z.enum(CERTIFICATE_STATUSES),
   error: z.string().nullable(),
   sentAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
 });
 export type CertificateRow = z.infer<typeof CertificateRowSchema>;
 

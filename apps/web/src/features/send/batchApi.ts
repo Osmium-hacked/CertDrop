@@ -51,6 +51,21 @@ export function useCertificates(batchId: string, status: CertificateStatus | und
   });
 }
 
+export function useRevocation(batchId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ certId, action }: { certId: string; action: 'revoke' | 'restore' }) =>
+      api(
+        `/batches/${batchId}/certificates/${certId}/${action}`,
+        z.object({ revokedAt: z.string().nullable() }),
+        {
+          method: 'POST',
+        },
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certificates', batchId] }),
+  });
+}
+
 export function useRetryFailed(batchId: string) {
   const queryClient = useQueryClient();
   return useMutation({

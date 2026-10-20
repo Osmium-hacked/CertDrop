@@ -178,6 +178,7 @@ export const batchRoutes =
           status: c.status,
           error: c.error,
           sentAt: c.sentAt?.toISOString() ?? null,
+          revokedAt: c.revokedAt?.toISOString() ?? null,
         })),
         nextCursor: rows.length > limit ? (page.at(-1)?.rowIndex ?? null) : null,
       } satisfies CertificatePage;
@@ -213,6 +214,35 @@ export const batchRoutes =
       });
       return { retried };
     });
+
+    /**
+     * Revoking withdraws a certificate (wrong person, issued by mistake): the verify page then
+     * says so instead of confirming it. Restoring undoes that. Only issued certificates qualify.
+     */
+    for (const action of ['revoke', 'restore'] as const) {
+      app.post(`/batches/:id/certificates/:certId/${action}`, async (request) => {
+        const { id, certId } = CertParams.parse(request.params);
+        await ownBatch(id, currentOrganizer(request).id);
+        const cert = await prisma.certificate.findFirst({
+          where: { id: certId, batchId: id, status: { in: ['GENERATED', 'SENT'] } },
+          select: { revokedAt: true },
+        });
+        if (!cert) {
+          throw new HttpError(
+            404,
+            'CERTIFICATE_NOT_FOUND',
+            'Only issued certificates can be revoked or restored.',
+          );
+        }
+        // Revoking an already-revoked certificate keeps the original revocation time.
+        if (action === 'revoke' && cert.revokedAt) return { revokedAt: cert.revokedAt.toISOString() };
+
+        const revokedAt = action === 'revoke' ? new Date() : null;
+        await prisma.certificate.update({ where: { id: certId }, data: { revokedAt } });
+        request.log.info({ batchId: id, certificateId: certId, action }, 'certificate revocation changed');
+        return { revokedAt: revokedAt?.toISOString() ?? null };
+      });
+    }
 
     app.get('/batches/:id/certificates/:certId/download', async (request, reply) => {
       const { id, certId } = CertParams.parse(request.params);

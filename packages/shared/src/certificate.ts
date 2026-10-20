@@ -16,3 +16,30 @@ export const CertIdSchema = z.string().regex(CERT_ID_PATTERN, 'Not a valid certi
 export function verifyUrl(publicAppUrl: string, certId: string): string {
   return `${publicAppUrl.replace(/\/+$/, '')}/verify/${certId}`;
 }
+
+/** GET /verify/:certId. Unknown or never-issued IDs are a 404, not a status. */
+export const VerifyResponseSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('valid'),
+    certificate: z.object({
+      id: z.string(),
+      recipientName: z.string(),
+      eventName: z.string(),
+      issuerName: z.string(),
+      /** YYYY-MM-DD, the date the organizer chose. */
+      issueDate: z.string(),
+    }),
+  }),
+  z.object({
+    // A revoked certificate confirms it existed but no longer vouches for anyone, so the
+    // recipient's name is not shown.
+    status: z.literal('revoked'),
+    certificate: z.object({
+      id: z.string(),
+      eventName: z.string(),
+      issuerName: z.string(),
+      revokedAt: z.string(),
+    }),
+  }),
+]);
+export type VerifyResponse = z.infer<typeof VerifyResponseSchema>;
