@@ -19,6 +19,8 @@ export const EmailSchema = z
 
 export const OtpRequestBodySchema = z.object({
   email: EmailSchema,
+  /** Cloudflare Turnstile token, required whenever the server has Turnstile configured. */
+  captchaToken: z.string().max(2048).optional(),
 });
 export type OtpRequestBody = z.infer<typeof OtpRequestBodySchema>;
 

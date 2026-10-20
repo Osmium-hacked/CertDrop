@@ -42,10 +42,25 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...BASE_TEST_ENV, EMAIL_PROVIDER: 'resend' })).toThrow(/RESEND_API_KEY/);
   });
 
-  it('refuses the file email provider in production', () => {
-    expect(() => loadEnv({ ...BASE_TEST_ENV, NODE_ENV: 'production' })).toThrow(/EMAIL_PROVIDER/);
-    expect(() =>
-      loadEnv({ ...BASE_TEST_ENV, NODE_ENV: 'production', EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_x' }),
-    ).not.toThrow();
+  it('refuses unsafe settings in production', () => {
+    const production = {
+      ...BASE_TEST_ENV,
+      NODE_ENV: 'production',
+      EMAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_x',
+      TURNSTILE_SECRET_KEY: '0x4AAAA-secret',
+    };
+    expect(() => loadEnv(production)).not.toThrow();
+    expect(() => loadEnv({ ...production, EMAIL_PROVIDER: 'file' })).toThrow(/EMAIL_PROVIDER/);
+    expect(() => loadEnv({ ...production, TURNSTILE_SECRET_KEY: undefined })).toThrow(/TURNSTILE_SECRET_KEY/);
+  });
+
+  it('only accepts Svix-style webhook secrets', () => {
+    expect(() => loadEnv({ ...BASE_TEST_ENV, RESEND_WEBHOOK_SECRET: 'plain-secret' })).toThrow(
+      /RESEND_WEBHOOK_SECRET/,
+    );
+    expect(loadEnv({ ...BASE_TEST_ENV, RESEND_WEBHOOK_SECRET: 'whsec_abc' }).RESEND_WEBHOOK_SECRET).toBe(
+      'whsec_abc',
+    );
   });
 });

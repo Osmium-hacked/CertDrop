@@ -11,6 +11,8 @@ import { ApiRequestError } from '../../lib/api';
 import { formatSeconds, useCountdown } from '../../lib/useCountdown';
 import { CodeInput } from './CodeInput';
 import { useRequestCode, useSession, useSignOut, useVerifyCode } from './session';
+import { TurnstileWidget } from './TurnstileWidget';
+import { useTurnstile, type TurnstileState } from './useTurnstile';
 
 const errorMessage = (err: unknown) =>
   err instanceof ApiRequestError ? err.message : 'Something went wrong. Please try again.';
@@ -18,7 +20,6 @@ const errorMessage = (err: unknown) =>
 /** Step 1: prove control of the organizer email with a one-time code. */
 export function VerifyEmailStep({ onVerified }: { onVerified: () => void }) {
   const session = useSession();
-  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   if (session.isPending) {
     return (
@@ -32,34 +33,46 @@ export function VerifyEmailStep({ onVerified }: { onVerified: () => void }) {
 
   const organizer = session.data?.organizer;
   if (organizer) return <SignedIn email={organizer.email} />;
+  return <SignInFlow onVerified={onVerified} />;
+}
+
+/** Email form, then code form. Owns the Turnstile widget so it survives the switch between them. */
+function SignInFlow({ onVerified }: { onVerified: () => void }) {
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const turnstile = useTurnstile();
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={pendingEmail ? 'code' : 'email'}
-        initial={{ opacity: 0, x: 8 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -8 }}
-        transition={{ duration: 0.16 }}
-      >
-        {pendingEmail ? (
-          <CodeForm
-            email={pendingEmail}
-            onChangeEmail={() => setPendingEmail(null)}
-            onVerified={onVerified}
-          />
-        ) : (
-          <EmailForm onSent={setPendingEmail} />
-        )}
-      </motion.div>
-    </AnimatePresence>
+    <div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={pendingEmail ? 'code' : 'email'}
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.16 }}
+        >
+          {pendingEmail ? (
+            <CodeForm
+              email={pendingEmail}
+              onChangeEmail={() => setPendingEmail(null)}
+              onVerified={onVerified}
+              turnstile={turnstile}
+            />
+          ) : (
+            <EmailForm onSent={setPendingEmail} turnstile={turnstile} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+      <TurnstileWidget enabled={turnstile.enabled} failed={turnstile.failed} mount={turnstile.mount} />
+    </div>
   );
 }
 
-function EmailForm({ onSent }: { onSent: (email: string) => void }) {
+function EmailForm({ onSent, turnstile }: { onSent: (email: string) => void; turnstile: TurnstileState }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string>();
   const request = useRequestCode();
+  const waitingForCheck = turnstile.enabled && !turnstile.token;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -70,8 +83,10 @@ function EmailForm({ onSent }: { onSent: (email: string) => void }) {
     }
     setError(undefined);
     request.mutate(
-      { email: parsed.data },
+      { email: parsed.data, captchaToken: turnstile.token ?? undefined },
       {
+        // Each token works once, whatever the outcome.
+        onSettled: turnstile.reset,
         onSuccess: () => onSent(parsed.data),
         onError: (err) => {
           // Already have a live code for this address: go straight to entering it.
@@ -100,7 +115,13 @@ function EmailForm({ onSent }: { onSent: (email: string) => void }) {
         hint="Certificates are sent on your behalf, with replies going to this address."
         autoFocus
       />
-      <Button type="submit" variant="primary" className="mt-4" disabled={request.isPending}>
+      <Button
+        type="submit"
+        variant="primary"
+        className="mt-4"
+        disabled={request.isPending || waitingForCheck}
+        title={waitingForCheck ? 'Waiting for the human check below' : undefined}
+      >
         {request.isPending && <Spinner />}
         Send code
       </Button>
@@ -112,10 +133,12 @@ function CodeForm({
   email,
   onChangeEmail,
   onVerified,
+  turnstile,
 }: {
   email: string;
   onChangeEmail: () => void;
   onVerified: () => void;
+  turnstile: TurnstileState;
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
@@ -161,8 +184,9 @@ function CodeForm({
 
   const resend = () => {
     request.mutate(
-      { email },
+      { email, captchaToken: turnstile.token ?? undefined },
       {
+        onSettled: turnstile.reset,
         onSuccess: (data) => {
           setResendAt(Date.now() + data.resendInSeconds * 1000);
           setCode('');
@@ -214,7 +238,12 @@ function CodeForm({
           {verify.isPending && <Spinner />}
           Verify
         </Button>
-        <Button type="button" variant="ghost" onClick={resend} disabled={resendIn > 0 || request.isPending}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={resend}
+          disabled={resendIn > 0 || request.isPending || (turnstile.enabled && !turnstile.token)}
+        >
           {request.isPending && <Spinner />}
           {resendIn > 0 ? `Resend in ${formatSeconds(resendIn)}` : 'Resend code'}
         </Button>

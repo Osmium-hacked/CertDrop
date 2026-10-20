@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { certificateFileName } from '../../email/templates/certificate';
 import { generateCertId } from '../../lib/certId';
 import { HttpError } from '../../lib/errors';
+import { enforceDailyQuota, quotaWindowStart } from '../../lib/quota';
 import type { Storage } from '../../lib/storage';
 import type { CertificateQueue } from '../../jobs/queues';
 import { currentOrganizer, requireOrganizer } from '../auth/guard';
@@ -27,6 +28,7 @@ interface BatchRouteDeps {
   storage: Storage;
   queue: CertificateQueue;
   session: SessionManager;
+  batchesPerDay: number;
 }
 
 const IdParams = z.object({ id: z.string().min(1).max(64) });
@@ -40,14 +42,34 @@ function toSummary(
     eventName: string;
     issuerName: string;
     createdAt: Date;
+    filesDeletedAt: Date | null;
   },
   counts: BatchCounts,
 ): BatchSummary {
-  return { ...batch, createdAt: batch.createdAt.toISOString(), counts };
+  return {
+    id: batch.id,
+    status: batch.status,
+    eventName: batch.eventName,
+    issuerName: batch.issuerName,
+    createdAt: batch.createdAt.toISOString(),
+    filesDeletedAt: batch.filesDeletedAt?.toISOString() ?? null,
+    counts,
+  };
+}
+
+/** After the retention cleanup the PDFs are gone, but verification still works. */
+function assertFilesAvailable(batch: { filesDeletedAt: Date | null }): void {
+  if (batch.filesDeletedAt) {
+    throw new HttpError(
+      410,
+      'FILES_EXPIRED',
+      'Certificate files are deleted 30 days after sending. Verification links keep working.',
+    );
+  }
 }
 
 export const batchRoutes =
-  ({ prisma, storage, queue, session }: BatchRouteDeps): FastifyPluginAsync =>
+  ({ prisma, storage, queue, session, batchesPerDay }: BatchRouteDeps): FastifyPluginAsync =>
   // eslint-disable-next-line @typescript-eslint/require-await -- Fastify plugins are async by contract
   async (app) => {
     app.addHook('preHandler', requireOrganizer(session));
@@ -77,6 +99,13 @@ export const batchRoutes =
       async (request, reply) => {
         const organizer = currentOrganizer(request);
         const body = BatchCreateSchema.parse(request.body);
+        enforceDailyQuota(
+          await prisma.batch.count({
+            where: { organizerId: organizer.id, createdAt: { gt: quotaWindowStart() } },
+          }),
+          batchesPerDay,
+          'batches',
+        );
 
         const template = await prisma.template.findFirst({
           where: { id: body.templateId, organizerId: organizer.id, deletedAt: null },
@@ -179,6 +208,7 @@ export const batchRoutes =
           error: c.error,
           sentAt: c.sentAt?.toISOString() ?? null,
           revokedAt: c.revokedAt?.toISOString() ?? null,
+          deliveryStatus: c.deliveryStatus,
         })),
         nextCursor: rows.length > limit ? (page.at(-1)?.rowIndex ?? null) : null,
       } satisfies CertificatePage;
@@ -186,7 +216,7 @@ export const batchRoutes =
 
     app.post('/batches/:id/retry-failed', async (request) => {
       const { id } = IdParams.parse(request.params);
-      await ownBatch(id, currentOrganizer(request).id);
+      assertFilesAvailable(await ownBatch(id, currentOrganizer(request).id));
 
       const retried = await prisma.$transaction(async (tx) => {
         const failed = await tx.certificate.findMany({ where: { batchId: id, status: 'FAILED' } });
@@ -247,6 +277,7 @@ export const batchRoutes =
     app.get('/batches/:id/certificates/:certId/download', async (request, reply) => {
       const { id, certId } = CertParams.parse(request.params);
       const batch = await ownBatch(id, currentOrganizer(request).id);
+      assertFilesAvailable(batch);
       const cert = await prisma.certificate.findFirst({ where: { id: certId, batchId: batch.id } });
       if (!cert?.pdfKey)
         throw new HttpError(404, 'CERTIFICATE_NOT_READY', 'This certificate isn’t ready yet.');
@@ -261,6 +292,7 @@ export const batchRoutes =
     app.get('/batches/:id/zip', async (request, reply) => {
       const { id } = IdParams.parse(request.params);
       const batch = await ownBatch(id, currentOrganizer(request).id);
+      assertFilesAvailable(batch);
       const certs = await prisma.certificate.findMany({
         where: { batchId: batch.id, pdfKey: { not: null }, status: { in: ['GENERATED', 'SENT'] } },
         orderBy: { rowIndex: 'asc' },

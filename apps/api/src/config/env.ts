@@ -57,6 +57,17 @@ const EnvSchema = z.object({
   GENERATE_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(3),
   /** Directory with the certificate TTFs (packages/shared/fonts in the repo, /app/fonts in Docker). */
   FONTS_DIR: z.string().default('../../packages/shared/fonts'),
+
+  /** Cloudflare Turnstile secret. Unset = no human check (development only; required in production). */
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  /** Signing secret ("whsec_...") for Resend delivery/bounce webhooks. Unset = webhook disabled. */
+  RESEND_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+
+  /** Abuse caps per organizer per rolling 24 hours, on top of the per-IP rate limits. */
+  BATCHES_PER_DAY: z.coerce.number().int().positive().default(10),
+  TEMPLATES_PER_DAY: z.coerce.number().int().positive().default(30),
+  /** Templates and generated PDFs are deleted after this many days; database records stay for /verify. */
+  FILE_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 /** Rules that span several variables. */
@@ -73,6 +84,13 @@ const RefinedEnvSchema = EnvSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['EMAIL_PROVIDER'],
       message: 'The file provider never delivers mail; use resend in production',
+    });
+  }
+  if (env.NODE_ENV === 'production' && !env.TURNSTILE_SECRET_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TURNSTILE_SECRET_KEY'],
+      message: 'Required in production: without it anyone can script code requests',
     });
   }
 });

@@ -15,8 +15,10 @@ import { SessionManager } from './modules/auth/session';
 import { healthRoutes } from './modules/health/health.routes';
 import { templateRoutes } from './modules/templates/templates.routes';
 import type { CertificateQueue } from './jobs/queues';
+import { disabledCaptcha, type CaptchaVerifier } from './lib/captcha';
 import { batchRoutes } from './modules/batches/batches.routes';
 import { verifyRoutes } from './modules/verify/verify.routes';
+import { resendWebhookRoutes } from './modules/webhooks/resend.routes';
 
 /**
  * Everything the HTTP layer needs, passed in rather than imported, so tests can build the app
@@ -29,6 +31,8 @@ export interface AppDeps {
   storage: Storage;
   email: EmailProvider;
   queue: CertificateQueue;
+  /** Defaults to no human check (development and tests). */
+  captcha?: CaptchaVerifier;
   /** Defaults to the system clock; tests pass a controllable one. */
   now?: () => Date;
 }
@@ -90,12 +94,26 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(
     async (api) => {
       await api.register(healthRoutes(deps));
-      await api.register(authRoutes({ otp, session }));
-      await api.register(templateRoutes({ prisma: deps.prisma, storage: deps.storage, session }));
+      await api.register(authRoutes({ otp, session, captcha: deps.captcha ?? disabledCaptcha }));
       await api.register(
-        batchRoutes({ prisma: deps.prisma, storage: deps.storage, queue: deps.queue, session }),
+        templateRoutes({
+          prisma: deps.prisma,
+          storage: deps.storage,
+          session,
+          templatesPerDay: env.TEMPLATES_PER_DAY,
+        }),
+      );
+      await api.register(
+        batchRoutes({
+          prisma: deps.prisma,
+          storage: deps.storage,
+          queue: deps.queue,
+          session,
+          batchesPerDay: env.BATCHES_PER_DAY,
+        }),
       );
       await api.register(verifyRoutes({ prisma: deps.prisma }));
+      await api.register(resendWebhookRoutes({ prisma: deps.prisma, secret: env.RESEND_WEBHOOK_SECRET }));
     },
     { prefix: '/api' },
   );

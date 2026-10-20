@@ -38,6 +38,8 @@ export function BatchProgress({ batchId, onStartOver }: { batchId: string; onSta
   const { batch } = data;
   const { counts } = batch;
   const processing = batch.status === 'PROCESSING';
+  // Past the retention period the PDFs are gone; the records (and verification) remain.
+  const expired = batch.filesDeletedAt !== null;
   const done = counts.sent + counts.failed;
   const generatedSoFar = counts.generated + counts.sent;
   const badge = BATCH_LABEL[batch.status];
@@ -70,13 +72,13 @@ export function BatchProgress({ batchId, onStartOver }: { batchId: string; onSta
           <span className="text-sm text-muted">{batch.eventName}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {counts.failed > 0 && !processing && (
+          {counts.failed > 0 && !processing && !expired && (
             <Button size="sm" onClick={onRetry} disabled={retry.isPending}>
               {retry.isPending && <Spinner />}
               Retry {counts.failed} failed
             </Button>
           )}
-          {generatedSoFar > 0 ? (
+          {expired ? null : generatedSoFar > 0 ? (
             <a
               href={`/api/batches/${batchId}/zip`}
               className="inline-flex h-8 items-center gap-2 rounded-lg border border-line-strong bg-elevated px-3 text-[13px] font-medium text-fg hover:bg-white/[0.06]"
@@ -120,7 +122,20 @@ export function BatchProgress({ batchId, onStartOver }: { batchId: string; onSta
         />
       </div>
 
-      <CertificateTable batchId={batchId} polling={processing} failedCount={counts.failed} />
+      {expired && (
+        <p className="rounded-lg border border-line-strong bg-elevated/60 px-3 py-2 text-[13px] text-muted">
+          Certificate files were deleted on{' '}
+          {new Date(batch.filesDeletedAt!).toLocaleDateString(undefined, { dateStyle: 'long' })}, as they are
+          for every batch after 30 days. Verification links keep working.
+        </p>
+      )}
+
+      <CertificateTable
+        batchId={batchId}
+        polling={processing}
+        failedCount={counts.failed}
+        expired={expired}
+      />
 
       {!processing && (
         <div className="flex flex-col items-center gap-2 border-t border-line pt-6 text-center">
@@ -170,10 +185,12 @@ function CertificateTable({
   batchId,
   polling,
   failedCount,
+  expired,
 }: {
   batchId: string;
   polling: boolean;
   failedCount: number;
+  expired: boolean;
 }) {
   const [filter, setFilter] = useState<'all' | 'FAILED'>('all');
   const status: CertificateStatus | undefined = filter === 'FAILED' ? 'FAILED' : undefined;
@@ -227,7 +244,7 @@ function CertificateTable({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <Row key={row.id} batchId={batchId} row={row} />
+                <Row key={row.id} batchId={batchId} row={row} expired={expired} />
               ))}
             </tbody>
           </table>
@@ -250,7 +267,13 @@ function CertificateTable({
   );
 }
 
-function Row({ batchId, row }: { batchId: string; row: CertificateRow }) {
+const DELIVERY_LABEL = {
+  DELIVERED: { label: 'Delivered', className: 'text-ok' },
+  BOUNCED: { label: 'Bounced: check the address', className: 'text-danger' },
+  COMPLAINED: { label: 'Marked as spam by recipient', className: 'text-warn' },
+} as const;
+
+function Row({ batchId, row, expired }: { batchId: string; row: CertificateRow; expired: boolean }) {
   const issued = row.status === 'GENERATED' || row.status === 'SENT';
   const revocation = useRevocation(batchId);
   const revoked = row.revokedAt !== null;
@@ -289,18 +312,27 @@ function Row({ batchId, row }: { batchId: string; row: CertificateRow }) {
             </span>
           )}
         </div>
+        {row.deliveryStatus && (
+          <p className={cn('mt-1 text-[12px]', DELIVERY_LABEL[row.deliveryStatus].className)}>
+            {DELIVERY_LABEL[row.deliveryStatus].label}
+          </p>
+        )}
         {row.error && <p className="mt-1 max-w-xs text-[12px] text-danger">{row.error}</p>}
       </td>
       <td className="px-3 py-2">
         {issued ? (
           <div className="flex items-center gap-3">
-            <a
-              href={`/api/batches/${batchId}/certificates/${row.id}/download`}
-              className="rounded-sm font-mono text-[12px] text-accent-fg hover:underline"
-              title="Download PDF"
-            >
-              {row.id}
-            </a>
+            {expired ? (
+              <span className="font-mono text-[12px] text-muted">{row.id}</span>
+            ) : (
+              <a
+                href={`/api/batches/${batchId}/certificates/${row.id}/download`}
+                className="rounded-sm font-mono text-[12px] text-accent-fg hover:underline"
+                title="Download PDF"
+              >
+                {row.id}
+              </a>
+            )}
             <a
               href={`/verify/${row.id}`}
               target="_blank"

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BATCH_MAX_ROWS } from './csv';
-import { BATCH_STATUSES, CERTIFICATE_STATUSES } from './enums';
+import { BATCH_STATUSES, CERTIFICATE_STATUSES, DELIVERY_STATUSES } from './enums';
 import { LayoutSchema } from './layout';
 
 /** Placeholders the organizer can use in the email subject and message. */
@@ -72,6 +72,8 @@ export const BatchSummarySchema = z.object({
   eventName: z.string(),
   issuerName: z.string(),
   createdAt: z.string(),
+  /** Set once the retention cleanup removed the PDFs; verification still works after that. */
+  filesDeletedAt: z.string().nullable(),
   counts: BatchCountsSchema,
 });
 export type BatchSummary = z.infer<typeof BatchSummarySchema>;
@@ -86,6 +88,8 @@ export const CertificateRowSchema = z.object({
   error: z.string().nullable(),
   sentAt: z.string().nullable(),
   revokedAt: z.string().nullable(),
+  /** From the email provider's webhooks, when configured. */
+  deliveryStatus: z.enum(DELIVERY_STATUSES).nullable(),
 });
 export type CertificateRow = z.infer<typeof CertificateRowSchema>;
 

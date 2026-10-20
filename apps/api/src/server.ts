@@ -3,6 +3,7 @@ import { loadEnv } from './config/env';
 import { createEmailProvider } from './email';
 import { createBoss } from './jobs/boss';
 import { ensureQueues, PgBossCertificateQueue } from './jobs/queues';
+import { disabledCaptcha, TurnstileVerifier } from './lib/captcha';
 import { createLogger } from './lib/logger';
 import { createPrisma } from './lib/prisma';
 import { createS3Storage } from './lib/storage';
@@ -29,7 +30,15 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 try {
   await boss.start();
   await ensureQueues(boss);
-  app = await buildApp({ env, logger, prisma, storage, email, queue: new PgBossCertificateQueue(boss) });
+  app = await buildApp({
+    env,
+    logger,
+    prisma,
+    storage,
+    email,
+    queue: new PgBossCertificateQueue(boss),
+    captcha: env.TURNSTILE_SECRET_KEY ? new TurnstileVerifier(env.TURNSTILE_SECRET_KEY) : disabledCaptcha,
+  });
   await app.listen({ host: env.HOST, port: env.PORT });
 } catch (err) {
   logger.fatal({ err }, 'failed to start');

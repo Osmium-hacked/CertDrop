@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -49,6 +50,8 @@ export interface Storage {
    */
   presignGet(key: string, expiresInSeconds: number, downloadName?: string): Promise<string>;
   delete(key: string): Promise<void>;
+  /** Deletes many objects in as few requests as possible (S3 allows 1,000 keys per call). */
+  deleteMany(keys: string[]): Promise<void>;
 }
 
 /**
@@ -132,6 +135,21 @@ export class S3Storage implements Storage {
 
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  async deleteMany(keys: string[]): Promise<void> {
+    for (let i = 0; i < keys.length; i += 1000) {
+      const chunk = keys.slice(i, i + 1000);
+      const res = await this.client.send(
+        new DeleteObjectsCommand({
+          Bucket: this.bucket,
+          Delete: { Objects: chunk.map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+      // Missing keys aren't errors for S3; anything reported here is a real failure.
+      if (res.Errors?.length)
+        throw new Error(`Failed to delete ${res.Errors.length} objects: ${res.Errors[0]?.Message}`);
+    }
   }
 
   /**

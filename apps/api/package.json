@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "cleanup": "tsx --env-file-if-exists=.env scripts/cleanup.ts",
     "fonts:coverage": "tsx scripts/font-coverage.ts",
     "seed:template": "tsx scripts/make-sample-template.ts",
     "storage:init": "tsx --env-file-if-exists=.env scripts/storage-init.ts",

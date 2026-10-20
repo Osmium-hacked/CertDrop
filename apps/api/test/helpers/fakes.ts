@@ -61,6 +61,10 @@ export class InMemoryStorage implements Storage {
     this.objects.delete(key);
     return Promise.resolve();
   }
+  deleteMany(keys: string[]): Promise<void> {
+    for (const key of keys) this.objects.delete(key);
+    return Promise.resolve();
+  }
 }
 
 export const okStorage: Storage = new InMemoryStorage();

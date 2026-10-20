@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { HttpError } from '../../lib/errors';
+import { enforceDailyQuota, quotaWindowStart } from '../../lib/quota';
 import type { Storage } from '../../lib/storage';
 import { currentOrganizer, requireOrganizer } from '../auth/guard';
 import type { SessionManager } from '../auth/session';
@@ -19,6 +20,7 @@ interface TemplateRouteDeps {
   prisma: PrismaClient;
   storage: Storage;
   session: SessionManager;
+  templatesPerDay: number;
 }
 
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
@@ -33,7 +35,7 @@ const ParamsSchema = z.object({ id: z.string().min(1).max(64) });
  * Only templates that pass step 3 (status READY) can be used in a batch.
  */
 export const templateRoutes =
-  ({ prisma, storage, session }: TemplateRouteDeps): FastifyPluginAsync =>
+  ({ prisma, storage, session, templatesPerDay }: TemplateRouteDeps): FastifyPluginAsync =>
   // eslint-disable-next-line @typescript-eslint/require-await -- Fastify plugins are async by contract
   async (app) => {
     app.addHook('preHandler', requireOrganizer(session));
@@ -44,6 +46,13 @@ export const templateRoutes =
       async (request) => {
         const organizer = currentOrganizer(request);
         const { contentType, sizeBytes } = TemplateUploadRequestSchema.parse(request.body);
+        enforceDailyQuota(
+          await prisma.template.count({
+            where: { organizerId: organizer.id, createdAt: { gt: quotaWindowStart() } },
+          }),
+          templatesPerDay,
+          'template uploads',
+        );
 
         const storageKey = `templates/${organizer.id}/${randomUUID()}.${EXTENSIONS[contentType]}`;
         const template = await prisma.template.create({
