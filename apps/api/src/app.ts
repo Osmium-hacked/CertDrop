@@ -76,7 +76,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     global: false,
     errorResponseBuilder: (_request, context) =>
-      new HttpError(429, 'RATE_LIMITED', `Too many requests. Try again in ${context.after}.`),
+      new HttpError(
+        429,
+        'RATE_LIMITED',
+        `Too many requests. Try again in ${context.after}.`,
+        Math.ceil(context.ttl / 1000),
+      ),
   });
 
   registerErrorHandlers(app);

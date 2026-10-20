@@ -1,0 +1,77 @@
+# Render Blueprint: the API and the worker are two services built from the same Docker image.
+# Deploy: Render dashboard → New → Blueprint → pick this repo. Fill the `sync: false` values when
+# prompted (see README → Deployment). Secrets marked generateValue are created by Render.
+
+services:
+  - type: web
+    name: certdrop-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    # Applies pending Prisma migrations before the new version takes traffic.
+    preDeployCommand: node_modules/.bin/prisma migrate deploy
+    envVars:
+      - fromGroup: certdrop
+
+  - type: worker
+    name: certdrop-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node dist/worker.js
+    plan: starter
+    envVars:
+      - fromGroup: certdrop
+
+envVarGroups:
+  - name: certdrop
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # The Vercel URL, e.g. https://certdrop.vercel.app (verify links and QR codes point here).
+      - key: PUBLIC_APP_URL
+        sync: false
+      # Vercel (rewrite) → Render's proxy → API.
+      - key: TRUST_PROXY_HOPS
+        value: '2'
+
+      # Neon: use the direct (non-pooled) connection string. pg-boss needs session features
+      # that PgBouncer's transaction pooling doesn't provide.
+      - key: DATABASE_URL
+        sync: false
+
+      # Cloudflare R2
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: 'false'
+
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OTP_SECRET
+        generateValue: true
+
+      # Resend, with a verified sending domain
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: EMAIL_RATE_PER_SECOND
+        value: '2'
+
+      - key: TURNSTILE_SECRET_KEY
+        sync: false

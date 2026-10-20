@@ -141,7 +141,14 @@ describe('OTP sign-in', () => {
 
     const tooSoon = await requestCode();
     expect(tooSoon.statusCode).toBe(429);
-    expect(tooSoon.json()).toMatchObject({ error: { code: 'OTP_COOLDOWN' } });
+    // The real remaining wait, so the UI's resend countdown starts from the right number.
+    expect(tooSoon.json()).toMatchObject({
+      error: { code: 'OTP_COOLDOWN', retryAfterSeconds: OTP_POLICY.resendCooldownSeconds },
+    });
+    expect(tooSoon.headers['retry-after']).toBe(String(OTP_POLICY.resendCooldownSeconds));
+    clock.advance(25);
+    expect((await requestCode()).json()).toMatchObject({ error: { retryAfterSeconds: 35 } });
+    clock.advance(-25);
 
     clock.advance(OTP_POLICY.resendCooldownSeconds);
     expect((await requestCode()).statusCode).toBe(200);

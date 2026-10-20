@@ -7,6 +7,8 @@ export const ApiErrorSchema = z.object({
     message: z.string(),
     /** Field-level validation issues, keyed by dotted path. */
     fields: z.record(z.string(), z.array(z.string())).optional(),
+    /** For throttled requests: how long until trying again can succeed. */
+    retryAfterSeconds: z.number().int().optional(),
   }),
 });
 

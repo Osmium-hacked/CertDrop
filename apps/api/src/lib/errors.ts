@@ -8,6 +8,8 @@ export class HttpError extends Error {
     readonly statusCode: number,
     readonly code: string,
     message: string,
+    /** Sent as both a Retry-After header and error.retryAfterSeconds. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'HttpError';
@@ -22,6 +24,12 @@ function body(code: string, message: string, fields?: Record<string, string[]>):
 export function registerErrorHandlers(app: FastifyInstance): void {
   app.setErrorHandler((err: FastifyError | Error, request, reply) => {
     if (err instanceof HttpError) {
+      if (err.retryAfterSeconds !== undefined) {
+        reply.header('retry-after', String(err.retryAfterSeconds));
+        return reply.status(err.statusCode).send({
+          error: { code: err.code, message: err.message, retryAfterSeconds: err.retryAfterSeconds },
+        });
+      }
       return reply.status(err.statusCode).send(body(err.code, err.message));
     }
 

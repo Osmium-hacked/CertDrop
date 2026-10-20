@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeftIcon } from '../../components/ui/icons';
@@ -99,7 +99,7 @@ function WizardFlow() {
 
       <div className="px-4 py-8 sm:px-10 sm:py-10">
         <AnimatePresence mode="wait" initial={false}>
-          <motion.section
+          <m.section
             key={step.id}
             aria-labelledby={`step-${step.id}-title`}
             initial={{ opacity: 0, y: 6 }}
@@ -135,7 +135,7 @@ function WizardFlow() {
                 </Suspense>
               )}
             </div>
-          </motion.section>
+          </m.section>
         </AnimatePresence>
       </div>
 

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Wizard } from '../features/wizard/Wizard';
 
 export function HomePage() {
@@ -9,7 +9,7 @@ export function HomePage() {
           aria-hidden
           className="hero-glow pointer-events-none absolute inset-x-[-40%] -top-14 h-[520px]"
         />
-        <motion.div
+        <m.div
           className="relative"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -21,16 +21,16 @@ export function HomePage() {
           <p className="mx-auto mt-5 max-w-xl text-base text-muted sm:text-lg">
             Upload a CSV and a template. Every participant gets a verified certificate in their inbox.
           </p>
-        </motion.div>
+        </m.div>
       </section>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
       >
         <Wizard />
-      </motion.div>
+      </m.div>
     </>
   );
 }

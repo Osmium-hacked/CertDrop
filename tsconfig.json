@@ -1,0 +1,8 @@
+{
+  // Root-level TypeScript files only (Playwright config). Each package has its own tsconfig.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "files": ["playwright.config.ts"]
+}

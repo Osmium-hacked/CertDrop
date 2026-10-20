@@ -3,11 +3,13 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MotionConfig } from 'framer-motion';
+import { LazyMotion, MotionConfig } from 'framer-motion';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';
 import { router } from './router';
+
+const loadMotionFeatures = () => import('./lib/motionFeatures').then((mod) => mod.default);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +25,10 @@ createRoot(root).render(
     <QueryClientProvider client={queryClient}>
       {/* "user" turns transform/layout animations off when the OS asks for reduced motion. */}
       <MotionConfig reducedMotion="user">
-        <RouterProvider router={router} />
+        {/* strict: using the full `motion` component (which defeats lazy loading) throws in development. */}
+        <LazyMotion features={loadMotionFeatures} strict>
+          <RouterProvider router={router} />
+        </LazyMotion>
       </MotionConfig>
     </QueryClientProvider>
   </StrictMode>,

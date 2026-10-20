@@ -53,6 +53,65 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: certdrop
+          POSTGRES_PASSWORD: certdrop
+          POSTGRES_DB: certdrop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U certdrop -d certdrop"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      storage:
+        image: rustfs/rustfs:1.0.3
+        env:
+          RUSTFS_ACCESS_KEY: certdrop
+          RUSTFS_SECRET_KEY: certdrop-dev-secret
+        ports:
+          - 9000:9000
+    # The API and worker read these directly (no .env file in CI). Turnstile is left unset, so the
+    # human check is skipped; emails go to the file outbox the test reads.
+    env:
+      NODE_ENV: development
+      LOG_LEVEL: warn
+      PUBLIC_APP_URL: http://localhost:5173
+      DATABASE_URL: postgresql://certdrop:certdrop@localhost:5432/certdrop
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: certdrop
+      S3_ACCESS_KEY_ID: certdrop
+      S3_SECRET_ACCESS_KEY: certdrop-dev-secret
+      S3_FORCE_PATH_STYLE: 'true'
+      SESSION_SECRET: ci-only-session-secret-0123456789abcdef
+      OTP_SECRET: ci-only-otp-secret-0123456789abcdefghij
+      EMAIL_PROVIDER: file
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @certdrop/api db:migrate:deploy
+      - run: pnpm --filter @certdrop/api storage:init
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-latest

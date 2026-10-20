@@ -8,6 +8,7 @@ export class ApiRequestError extends Error {
     readonly code: string,
     message: string,
     readonly fields?: Record<string, string[]>,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -49,8 +50,8 @@ export async function api<T>(path: string, schema: z.ZodType<T>, options: Reques
   if (!res.ok && !acceptStatus.includes(res.status)) {
     const parsed = ApiErrorSchema.safeParse(json);
     if (parsed.success) {
-      const { code, message, fields } = parsed.data.error;
-      throw new ApiRequestError(res.status, code, message, fields);
+      const { code, message, fields, retryAfterSeconds } = parsed.data.error;
+      throw new ApiRequestError(res.status, code, message, fields, retryAfterSeconds);
     }
     throw new ApiRequestError(res.status, 'HTTP_ERROR', `Request failed (${res.status}).`);
   }

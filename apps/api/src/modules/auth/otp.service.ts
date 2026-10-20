@@ -46,6 +46,7 @@ export class OtpService {
           429,
           'OTP_COOLDOWN',
           `Please wait ${waitSeconds}s before requesting another code.`,
+          waitSeconds,
         );
       }
     }

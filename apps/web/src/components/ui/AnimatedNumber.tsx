@@ -1,20 +1,31 @@
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion';
-import { useEffect } from 'react';
+import { useReducedMotion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
-/** Counts smoothly to each new value; jumps straight there when the OS asks for reduced motion. */
+const DURATION_MS = 600;
+const easeOut = (t: number) => 1 - (1 - t) ** 3;
+
+/**
+ * Counts smoothly to each new value; jumps straight there when the OS asks for reduced motion.
+ * A plain requestAnimationFrame tween: importing framer-motion's animation engine here would pull
+ * it into the initial bundle just for a counter.
+ */
 export function AnimatedNumber({ value }: { value: number }) {
   const reduceMotion = useReducedMotion();
-  const motionValue = useMotionValue(value);
-  const display = useTransform(motionValue, (v) => Math.round(v).toLocaleString());
+  const [display, setDisplay] = useState(value);
+  const shown = useRef(value);
 
   useEffect(() => {
-    if (reduceMotion) {
-      motionValue.set(value);
-      return;
-    }
-    const controls = animate(motionValue, value, { duration: 0.6, ease: 'easeOut' });
-    return () => controls.stop();
-  }, [value, reduceMotion, motionValue]);
+    const from = shown.current;
+    if (from === value) return;
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const progress = reduceMotion ? 1 : Math.min(1, (now - start) / DURATION_MS);
+      shown.current = from + (value - from) * easeOut(progress);
+      setDisplay(shown.current);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [value, reduceMotion]);
 
-  return <motion.span className="tabular-nums">{display}</motion.span>;
+  return <span className="tabular-nums">{Math.round(display).toLocaleString()}</span>;
 }

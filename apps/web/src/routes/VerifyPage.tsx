@@ -1,6 +1,6 @@
 import { CERT_ID_PATTERN, VerifyResponseSchema, type VerifyResponse } from '@certdrop/shared';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Button } from '../components/ui/Button';
@@ -151,7 +151,7 @@ function ResultCard(props: {
 }) {
   const tone = TONES[props.tone];
   return (
-    <motion.section
+    <m.section
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -171,7 +171,7 @@ function ResultCard(props: {
         {props.badge}
       </span>
       {props.children}
-    </motion.section>
+    </m.section>
   );
 }
 

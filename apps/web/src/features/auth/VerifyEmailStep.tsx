@@ -1,5 +1,5 @@
 import { EmailSchema, OTP_POLICY } from '@certdrop/shared';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
@@ -38,37 +38,48 @@ export function VerifyEmailStep({ onVerified }: { onVerified: () => void }) {
 
 /** Email form, then code form. Owns the Turnstile widget so it survives the switch between them. */
 function SignInFlow({ onVerified }: { onVerified: () => void }) {
-  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  // Which address is waiting for a code, and how long until a resend is allowed.
+  const [pending, setPending] = useState<{ email: string; resendInSeconds: number } | null>(null);
   const turnstile = useTurnstile();
 
   return (
     <div>
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={pendingEmail ? 'code' : 'email'}
+        <m.div
+          key={pending ? 'code' : 'email'}
           initial={{ opacity: 0, x: 8 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -8 }}
           transition={{ duration: 0.16 }}
         >
-          {pendingEmail ? (
+          {pending ? (
             <CodeForm
-              email={pendingEmail}
-              onChangeEmail={() => setPendingEmail(null)}
+              email={pending.email}
+              resendInSeconds={pending.resendInSeconds}
+              onChangeEmail={() => setPending(null)}
               onVerified={onVerified}
               turnstile={turnstile}
             />
           ) : (
-            <EmailForm onSent={setPendingEmail} turnstile={turnstile} />
+            <EmailForm
+              onSent={(email, resendInSeconds) => setPending({ email, resendInSeconds })}
+              turnstile={turnstile}
+            />
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
       <TurnstileWidget enabled={turnstile.enabled} failed={turnstile.failed} mount={turnstile.mount} />
     </div>
   );
 }
 
-function EmailForm({ onSent, turnstile }: { onSent: (email: string) => void; turnstile: TurnstileState }) {
+function EmailForm({
+  onSent,
+  turnstile,
+}: {
+  onSent: (email: string, resendInSeconds: number) => void;
+  turnstile: TurnstileState;
+}) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string>();
   const request = useRequestCode();
@@ -87,12 +98,12 @@ function EmailForm({ onSent, turnstile }: { onSent: (email: string) => void; tur
       {
         // Each token works once, whatever the outcome.
         onSettled: turnstile.reset,
-        onSuccess: () => onSent(parsed.data),
+        onSuccess: (data) => onSent(parsed.data, data.resendInSeconds),
         onError: (err) => {
           // Already have a live code for this address: go straight to entering it.
           if (err instanceof ApiRequestError && err.code === 'OTP_COOLDOWN') {
             toast.info('We sent you a code moments ago. Check your inbox.');
-            onSent(parsed.data);
+            onSent(parsed.data, err.retryAfterSeconds ?? OTP_POLICY.resendCooldownSeconds);
             return;
           }
           toast.error(errorMessage(err));
@@ -134,15 +145,17 @@ function CodeForm({
   onChangeEmail,
   onVerified,
   turnstile,
+  resendInSeconds,
 }: {
   email: string;
+  resendInSeconds: number;
   onChangeEmail: () => void;
   onVerified: () => void;
   turnstile: TurnstileState;
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
-  const [resendAt, setResendAt] = useState(() => Date.now() + OTP_POLICY.resendCooldownSeconds * 1000);
+  const [resendAt, setResendAt] = useState(() => Date.now() + resendInSeconds * 1000);
   const resendIn = useCountdown(resendAt);
   const inputRef = useRef<HTMLInputElement>(null);
   const verify = useVerifyCode();
