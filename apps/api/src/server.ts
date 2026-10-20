@@ -1,5 +1,6 @@
 import { buildApp } from './app';
 import { loadEnv } from './config/env';
+import { createEmailProvider } from './email';
 import { createLogger } from './lib/logger';
 import { createPrisma } from './lib/prisma';
 import { createS3Storage } from './lib/storage';
@@ -8,8 +9,9 @@ const env = loadEnv();
 const logger = createLogger(env, 'api');
 const prisma = createPrisma(env);
 const storage = createS3Storage(env);
+const email = createEmailProvider(env);
 
-const app = await buildApp({ env, logger, prisma, storage });
+const app = await buildApp({ env, logger, prisma, storage, email });
 
 const shutdown = async (signal: string) => {
   logger.info({ signal }, 'shutting down');

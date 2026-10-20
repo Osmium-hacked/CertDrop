@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router';
+import { Toaster } from 'sonner';
 import { SiteFooter } from './SiteFooter';
 import { SiteHeader } from './SiteHeader';
 
@@ -16,6 +17,16 @@ export function AppLayout() {
         <Outlet />
       </main>
       <SiteFooter />
+      <Toaster
+        theme="dark"
+        position="bottom-right"
+        toastOptions={{
+          classNames: {
+            toast: '!bg-elevated !border-line-strong !text-fg !rounded-xl !font-sans !text-[13px]',
+            description: '!text-muted',
+          },
+        }}
+      />
     </div>
   );
 }

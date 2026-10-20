@@ -13,6 +13,23 @@ jobs:
   check:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
+    services:
+      # Integration tests create and migrate their own "certdrop_test" database here.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: certdrop
+          POSTGRES_PASSWORD: certdrop
+          POSTGRES_DB: certdrop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U certdrop -d certdrop"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://certdrop:certdrop@localhost:5432/certdrop_test
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4 # version comes from "packageManager" in package.json

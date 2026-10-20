@@ -2,18 +2,12 @@ import { HealthResponseSchema } from '@certdrop/shared';
 import type { PrismaClient } from '@prisma/client';
 import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildApp } from '../src/app';
-import { loadEnv } from '../src/config/env';
-import type { Storage } from '../src/lib/storage';
+import { buildApp } from '../../src/app';
+import type { Storage } from '../../src/lib/storage';
+import { testEnv } from '../helpers/env';
+import { CapturingEmailProvider } from '../helpers/fakes';
 
-const env = loadEnv({
-  NODE_ENV: 'test',
-  PUBLIC_APP_URL: 'http://localhost:5173',
-  DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
-  S3_BUCKET: 'certdrop',
-  S3_ACCESS_KEY_ID: 'key',
-  S3_SECRET_ACCESS_KEY: 'secret',
-});
+const env = testEnv();
 
 // Only the slice of PrismaClient the health route touches.
 function fakePrisma(ok: boolean): PrismaClient {
@@ -33,6 +27,7 @@ async function makeApp(dbOk: boolean, storageOk: boolean) {
     logger: pino({ level: 'silent' }),
     prisma: fakePrisma(dbOk),
     storage: fakeStorage(storageOk),
+    email: new CapturingEmailProvider(),
   });
 }
 

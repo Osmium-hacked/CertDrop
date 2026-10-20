@@ -4,6 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ArrowLeftIcon } from '../../components/ui/icons';
 import { SectionLabel } from '../../components/ui/SectionLabel';
+import { useSession } from '../auth/session';
+import { VerifyEmailStep } from '../auth/VerifyEmailStep';
 import { Stepper } from './Stepper';
 import { STEPS } from './steps';
 
@@ -11,24 +13,37 @@ import { STEPS } from './steps';
 const ENTER_OWNERS = 'input, textarea, button, a, select, [contenteditable="true"]';
 
 export function Wizard() {
-  const [current, setCurrent] = useState(0);
-  const [furthest, setFurthest] = useState(0);
+  const session = useSession();
+  const signedIn = Boolean(session.data?.organizer);
+
+  const [selected, setSelected] = useState(0);
+  const [reached, setReached] = useState(0);
+  // Every step after the first needs a verified organizer. Deriving (rather than storing) these
+  // means signing out or an expired session drops the organizer back to step 1 automatically.
+  const current = signedIn ? selected : 0;
+  const furthest = signedIn ? reached : 0;
+
   const step = STEPS[current] ?? STEPS[0]!;
   const isLast = current === STEPS.length - 1;
+  const canContinue = !isLast && (step.id !== 'verify' || signedIn);
 
   const goTo = useCallback(
     (index: number) => {
-      if (index >= 0 && index <= furthest) setCurrent(index);
+      if (index >= 0 && index <= furthest) setSelected(index);
     },
     [furthest],
   );
 
+  /** Moves forward unconditionally; used by steps that know they just completed. */
+  const advance = useCallback(() => {
+    const target = Math.min(current + 1, STEPS.length - 1);
+    setReached((r) => Math.max(r, target));
+    setSelected(target);
+  }, [current]);
+
   const next = useCallback(() => {
-    if (isLast) return;
-    const target = current + 1;
-    setFurthest((f) => Math.max(f, target));
-    setCurrent(target);
-  }, [current, isLast]);
+    if (canContinue) advance();
+  }, [canContinue, advance]);
 
   // Listen on window rather than the card: after a click on plain text, focus sits on <body>,
   // and Enter should still advance. Steps with inputs submit their own forms on Enter.
@@ -76,11 +91,15 @@ export function Wizard() {
             <p className="mt-1.5 max-w-xl text-sm text-muted">{step.description}</p>
 
             <div className="mt-8">
-              <EmptyState
-                icon={step.icon}
-                title="This step is being built"
-                description="The layout, navigation and keyboard handling are in place. The step’s controls arrive in an upcoming milestone."
-              />
+              {step.id === 'verify' ? (
+                <VerifyEmailStep onVerified={advance} />
+              ) : (
+                <EmptyState
+                  icon={step.icon}
+                  title="This step is being built"
+                  description="The layout, navigation and keyboard handling are in place. The step’s controls arrive in an upcoming milestone."
+                />
+              )}
             </div>
           </motion.section>
         </AnimatePresence>
@@ -92,11 +111,13 @@ export function Wizard() {
           Back
         </Button>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted sm:inline">
-            Press <kbd className="rounded border border-line-strong px-1 font-sans text-[11px]">Enter</kbd> to
-            continue
-          </span>
-          <Button variant="primary" size="sm" onClick={next} disabled={isLast}>
+          {canContinue && (
+            <span className="hidden text-xs text-muted sm:inline">
+              Press <kbd className="rounded border border-line-strong px-1 font-sans text-[11px]">Enter</kbd>{' '}
+              to continue
+            </span>
+          )}
+          <Button variant="primary" size="sm" onClick={next} disabled={!canContinue}>
             Continue
           </Button>
         </div>
