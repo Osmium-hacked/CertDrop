@@ -1,0 +1,131 @@
+// CertDrop data model.
+// Email addresses are stored lowercased. Organizer-facing files (templates, PDFs) are deleted
+// after 30 days, but Certificate rows are kept so /verify keeps working.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organizer {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  verifiedAt DateTime?
+  createdAt  DateTime   @default(now())
+  templates  Template[]
+  batches    Batch[]
+}
+
+model OtpCode {
+  id         String    @id @default(cuid())
+  email      String
+  /// HMAC-SHA256 of the 6-digit code; the plain code is never stored.
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  // Supports both "latest code for this email" and "codes sent in the last hour" (rate limit).
+  @@index([email, createdAt])
+}
+
+enum TemplateStatus {
+  PENDING // presigned URL issued, upload not yet verified
+  READY // size, magic bytes and page count verified
+}
+
+model Template {
+  id          String         @id @default(cuid())
+  organizerId String
+  organizer   Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  storageKey  String         @unique
+  mimeType    String
+  sizeBytes   Int
+  /// Page size in PDF points (1/72 inch), filled in when the upload is verified.
+  widthPt     Float?
+  heightPt    Float?
+  status      TemplateStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  deletedAt   DateTime?
+  batches     Batch[]
+
+  @@index([organizerId, createdAt])
+}
+
+enum BatchStatus {
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+}
+
+model Batch {
+  id             String        @id @default(cuid())
+  organizerId    String
+  organizer      Organizer     @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  templateId     String
+  template       Template      @relation(fields: [templateId], references: [id])
+  eventName      String
+  /// Shown on the certificate email and the verification page instead of the organizer's email.
+  issuerName     String
+  issueDate      DateTime      @db.Date
+  emailSubject   String
+  emailMessage   String
+  /// Validated against LayoutSchema from @certdrop/shared on write and on read.
+  layout         Json
+  status         BatchStatus   @default(PROCESSING)
+  createdAt      DateTime      @default(now())
+  filesDeletedAt DateTime?
+  certificates   Certificate[]
+
+  // Per-organizer daily batch quota.
+  @@index([organizerId, createdAt])
+}
+
+enum CertificateStatus {
+  QUEUED
+  GENERATED
+  SENT
+  FAILED
+}
+
+enum FailedStage {
+  GENERATE
+  SEND
+}
+
+enum DeliveryStatus {
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+}
+
+model Certificate {
+  /// Public certificate ID, e.g. CD-x7Kp2mQ9aZ. Non-guessable; appears in the verify URL.
+  id             String            @id
+  batchId        String
+  batch          Batch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  /// Position in the uploaded CSV, for stable ordering in the UI.
+  rowIndex       Int
+  recipientName  String
+  recipientEmail String
+  pdfKey         String?
+  status         CertificateStatus @default(QUEUED)
+  failedStage    FailedStage?
+  error          String?
+  attempts       Int               @default(0)
+  emailMessageId String?           @unique
+  deliveryStatus DeliveryStatus?
+  sentAt         DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([batchId, rowIndex])
+  // Status counts and "?status=FAILED" filtering.
+  @@index([batchId, status])
+}

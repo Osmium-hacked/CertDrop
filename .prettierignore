@@ -1,0 +1,6 @@
+dist
+coverage
+pnpm-lock.yaml
+.mail-outbox
+playwright-report
+apps/api/prisma/migrations

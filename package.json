@@ -1,0 +1,31 @@
+{
+  "name": "certdrop",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,api,worker -c magenta,cyan,yellow \"pnpm --filter @certdrop/web dev\" \"pnpm --filter @certdrop/api dev:api\" \"pnpm --filter @certdrop/api dev:worker\"",
+    "bootstrap": "docker compose up -d --wait && pnpm --filter @certdrop/api db:migrate:deploy && pnpm --filter @certdrop/api storage:init",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "prettier": "^3.6.2",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.44.0"
+  }
+}

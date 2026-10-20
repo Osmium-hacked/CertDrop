@@ -1,0 +1,41 @@
+{
+  "name": "@certdrop/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:api": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=.env src/worker.ts",
+    "build": "tsup",
+    "start:api": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "storage:init": "tsx --env-file-if-exists=.env scripts/storage-init.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.890.0",
+    "@aws-sdk/s3-request-presigner": "^3.1153.0",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/helmet": "^13.0.1",
+    "@prisma/client": "^6.16.2",
+    "fastify": "^5.6.0",
+    "pg-boss": "^12.38.0",
+    "pino": "^10.4.0",
+    "prisma": "^6.16.2",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@certdrop/shared": "workspace:*",
+    "@types/node": "^24.5.2",
+    "pino-pretty": "^13.1.1",
+    "tsup": "^9.0.0",
+    "tsx": "^4.20.5",
+    "vitest": "^5.0.5"
+  }
+}

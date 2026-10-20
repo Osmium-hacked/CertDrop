@@ -1,0 +1,99 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Dark only. One accent (soft violet), used sparingly: primary actions, focus rings,
+ * the active step. Text colours are chosen to pass WCAG AA on the canvas and surface colours:
+ *   fg    #f7f8f8 on #08090a → 18.7:1
+ *   muted #8a8f98 on #0f1011 → 5.9:1
+ *   white on accent #6e5fd6  → 4.9:1
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --color-canvas: #08090a;
+  --color-surface: #0f1011;
+  --color-elevated: #16171a;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+
+  --color-fg: #f7f8f8;
+  --color-muted: #8a8f98;
+
+  --color-accent: #6e5fd6;
+  --color-accent-hover: #7c6ee0;
+  --color-accent-soft: rgb(124 110 224 / 0.14);
+  --color-accent-fg: #b4abff;
+
+  --color-ok: #4cb782;
+  --color-ok-soft: rgb(76 183 130 / 0.12);
+  --color-warn: #e2a336;
+  --color-warn-soft: rgb(226 163 54 / 0.12);
+  --color-danger: #eb5757;
+  --color-danger-soft: rgb(235 87 87 / 0.12);
+  --color-info: #6fa8ee;
+  --color-info-soft: rgb(111 168 238 / 0.12);
+
+  --tracking-heading: -0.022em;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-fg);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Large heading with a subtle white-to-grey fade. */
+  .text-gradient {
+    background: linear-gradient(180deg, #f7f8f8 30%, rgb(247 248 248 / 0.55) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Soft violet glow behind the hero. Decorative: pointer-events off and hidden from AT. */
+  .hero-glow {
+    background: radial-gradient(
+      60% 55% at 50% 0%,
+      rgb(124 110 224 / 0.22) 0%,
+      rgb(124 110 224 / 0.06) 45%,
+      transparent 75%
+    );
+  }
+}

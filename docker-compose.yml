@@ -1,0 +1,38 @@
+# Local infrastructure only: the app itself runs on the host with `pnpm dev`.
+#
+# Object storage is RustFS, an Apache-2.0, S3-compatible server. It stands in for MinIO, whose
+# maintainers stopped publishing community Docker images in 2025. The app talks to it through
+# the AWS SDK exactly as it talks to Cloudflare R2 in production.
+name: certdrop
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: certdrop
+      POSTGRES_PASSWORD: certdrop
+      POSTGRES_DB: certdrop
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U certdrop -d certdrop']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  storage:
+    image: rustfs/rustfs:1.0.3
+    environment:
+      RUSTFS_ACCESS_KEY: certdrop
+      RUSTFS_SECRET_KEY: certdrop-dev-secret
+    ports:
+      - '9000:9000' # S3 API
+      - '9001:9001' # web console
+    volumes:
+      - objects:/data
+
+volumes:
+  pgdata:
+  objects:
