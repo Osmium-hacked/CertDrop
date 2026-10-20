@@ -48,6 +48,15 @@ const EnvSchema = z.object({
   EMAIL_FROM_ADDRESS: z.email().default('certificates@certdrop.local'),
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_OUTBOX_DIR: z.string().default('.mail-outbox'),
+  /**
+   * Emails per second across the worker. Resend's default limit is 2/s; going over it just
+   * produces 429s and retries. With several worker instances, divide the limit between them.
+   */
+  EMAIL_RATE_PER_SECOND: z.coerce.number().positive().max(100).default(2),
+  /** Certificates rendered in parallel per worker. Rendering is CPU-bound, so keep it near the core count. */
+  GENERATE_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(3),
+  /** Directory with the certificate TTFs (packages/shared/fonts in the repo, /app/fonts in Docker). */
+  FONTS_DIR: z.string().default('../../packages/shared/fonts'),
 });
 
 /** Rules that span several variables. */

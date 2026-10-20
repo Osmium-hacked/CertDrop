@@ -10,7 +10,7 @@ export function normalizeName(name: string): string {
  * Unicode ranges the bundled fonts cover and that need no complex text shaping:
  * Latin (incl. Vietnamese), Greek and Cyrillic, plus common punctuation.
  */
-const SUPPORTED_RANGES: ReadonlyArray<readonly [number, number]> = [
+export const SUPPORTED_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x0020, 0x007e], // Basic Latin (printable)
   [0x00a0, 0x00ff], // Latin-1 Supplement
   [0x0100, 0x024f], // Latin Extended-A and -B

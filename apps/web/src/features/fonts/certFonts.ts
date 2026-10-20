@@ -1,4 +1,4 @@
-import { CERT_FONTS, type CertFont, type MeasureText } from '@certdrop/shared';
+import { CERT_FONTS, splitFontRuns, type CertFont, type FontRun, type MeasureText } from '@certdrop/shared';
 import ebGaramond from '@certdrop/shared/fonts/EBGaramond-Medium.ttf?url';
 import greatVibes from '@certdrop/shared/fonts/GreatVibes-Regular.ttf?url';
 import inter from '@certdrop/shared/fonts/Inter-SemiBold.ttf?url';
@@ -20,9 +20,12 @@ const FALLBACK_FAMILY = 'cd-fallback';
 
 export const fontFamily = (font: CertFont) => `cd-${font}`;
 
-/** CSS font shorthand with the shared fallback font, mirroring the server's per-glyph fallback. */
-export const cssFont = (font: CertFont, sizePx: number) =>
-  `${sizePx}px "${fontFamily(font)}", "${FALLBACK_FAMILY}"`;
+/**
+ * CSS font for one run of text. Fallback is decided per word by the shared coverage table (the
+ * same rule the PDF renderer applies), not left to the browser's per-character fallback.
+ */
+export const runFont = (font: CertFont, run: FontRun, sizePx: number) =>
+  `${sizePx}px "${run.fallback ? FALLBACK_FAMILY : fontFamily(font)}"`;
 
 let loading: Promise<void> | null = null;
 
@@ -57,7 +60,9 @@ const measureContext = document.createElement('canvas').getContext('2d');
 export function measureWith(font: CertFont): MeasureText {
   return (text) => {
     if (!measureContext) return text.length * 0.5;
-    measureContext.font = cssFont(font, 100);
-    return measureContext.measureText(text).width / 100;
+    return splitFontRuns(text, font).reduce((width, run) => {
+      measureContext.font = runFont(font, run, 100);
+      return width + measureContext.measureText(run.text).width / 100;
+    }, 0);
   };
 }

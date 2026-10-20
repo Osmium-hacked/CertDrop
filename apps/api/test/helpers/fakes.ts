@@ -1,4 +1,6 @@
+import { Readable } from 'node:stream';
 import type { EmailMessage, EmailProvider, SendResult } from '../../src/email';
+import type { CertificateQueue } from '../../src/jobs/queues';
 import type { Storage } from '../../src/lib/storage';
 
 /** Records every email instead of sending it. Set `failNext` to simulate a provider outage. */
@@ -45,6 +47,16 @@ export class InMemoryStorage implements Storage {
     const object = this.objects.get(key);
     return object ? Promise.resolve(object.bytes) : Promise.reject(new Error(`No object ${key}`));
   }
+  getStream(key: string): Promise<Readable> {
+    return this.getBytes(key).then((bytes) => Readable.from([Buffer.from(bytes)]));
+  }
+  putBytes(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+    this.objects.set(key, { bytes, contentType });
+    return Promise.resolve();
+  }
+  presignGet(key: string): Promise<string> {
+    return Promise.resolve(`https://storage.test/${encodeURIComponent(key)}?signature=fake-get`);
+  }
   delete(key: string): Promise<void> {
     this.objects.delete(key);
     return Promise.resolve();
@@ -52,6 +64,23 @@ export class InMemoryStorage implements Storage {
 }
 
 export const okStorage: Storage = new InMemoryStorage();
+
+/** Wraps a provider and fails the next calls with the queued errors, then behaves normally. */
+export class FlakyEmailProvider implements EmailProvider {
+  readonly failures: Error[] = [];
+  constructor(private readonly inner: EmailProvider) {}
+
+  send(message: EmailMessage): Promise<SendResult> {
+    const failure = this.failures.shift();
+    return failure ? Promise.reject(failure) : this.inner.send(message);
+  }
+}
+
+/** For tests that never create batches. */
+export const noopQueue: CertificateQueue = {
+  enqueueGenerate: () => Promise.resolve(),
+  enqueueSend: () => Promise.resolve(),
+};
 
 /** A clock tests can move forward. */
 export class TestClock {

@@ -6,7 +6,7 @@ import { buildApp } from '../../src/app';
 import { SESSION_COOKIE } from '../../src/modules/auth/session';
 import { resetDatabase, testPrisma } from '../helpers/db';
 import { testEnv } from '../helpers/env';
-import { CapturingEmailProvider, okStorage, TestClock } from '../helpers/fakes';
+import { CapturingEmailProvider, noopQueue, okStorage, TestClock } from '../helpers/fakes';
 
 const prisma = testPrisma();
 const EMAIL = 'ana@example.com';
@@ -26,6 +26,7 @@ beforeEach(async () => {
     prisma,
     storage: okStorage,
     email,
+    queue: noopQueue,
     now: clock.now,
   });
 });

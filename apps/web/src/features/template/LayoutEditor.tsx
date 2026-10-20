@@ -3,7 +3,7 @@ import type Konva from 'konva';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Image as KonvaImage, Layer, Rect, Shape, Stage, Transformer } from 'react-konva';
 import type { LoadedTemplate } from '../batch/draft';
-import { cssFont } from '../fonts/certFonts';
+import { drawName, drawQrPlaceholder } from './drawName';
 import type { PreviewFit } from './usePreviewFit';
 
 export type EditableBox = 'name' | 'qr';
@@ -156,12 +156,8 @@ export function LayoutEditor({
             <Shape
               listening={false}
               sceneFunc={(ctx) => {
-                ctx.setAttr('font', cssFont(layout.font, preview.fit.fontSize * scale));
-                ctx.setAttr('fillStyle', layout.color);
-                ctx.setAttr('textBaseline', 'alphabetic');
-                for (const line of preview.lines) {
-                  ctx.fillText(line.text, nameBox.x + line.x * scale, nameBox.y + line.baseline * scale);
-                }
+                // Konva wraps the native context; the shared helper draws on the real one.
+                drawName(ctx._context, layout, preview, stageWidth, stageHeight, scale);
               }}
             />
 
@@ -188,7 +184,7 @@ export function LayoutEditor({
                 <Shape
                   listening={false}
                   sceneFunc={(ctx) =>
-                    drawQrPlaceholder(ctx, qrBox.x, qrBox.y, Math.min(qrBox.width, qrBox.height))
+                    drawQrPlaceholder(ctx._context, qrBox.x, qrBox.y, Math.min(qrBox.width, qrBox.height))
                   }
                 />
                 <Rect
@@ -247,29 +243,4 @@ export function LayoutEditor({
       )}
     </div>
   );
-}
-
-/** A schematic QR code: three finder squares on white. The real code is generated per certificate. */
-function drawQrPlaceholder(ctx: Konva.Context, x: number, y: number, size: number) {
-  ctx.setAttr('fillStyle', '#ffffff');
-  ctx.fillRect(x, y, size, size);
-  const cell = size / 25;
-  ctx.setAttr('fillStyle', '#111111');
-  for (const [cx, cy] of [
-    [2, 2],
-    [16, 2],
-    [2, 16],
-  ] as const) {
-    ctx.fillRect(x + cx * cell, y + cy * cell, 7 * cell, 7 * cell);
-    ctx.setAttr('fillStyle', '#ffffff');
-    ctx.fillRect(x + (cx + 1) * cell, y + (cy + 1) * cell, 5 * cell, 5 * cell);
-    ctx.setAttr('fillStyle', '#111111');
-    ctx.fillRect(x + (cx + 2) * cell, y + (cy + 2) * cell, 3 * cell, 3 * cell);
-  }
-  for (let i = 0; i < 60; i++) {
-    // Deterministic speckle so the placeholder doesn't flicker between renders.
-    const px = 10 + ((i * 7) % 13);
-    const py = 10 + ((i * 11) % 13);
-    ctx.fillRect(x + px * cell, y + py * cell, cell, cell);
-  }
 }

@@ -14,6 +14,8 @@ import { OtpService } from './modules/auth/otp.service';
 import { SessionManager } from './modules/auth/session';
 import { healthRoutes } from './modules/health/health.routes';
 import { templateRoutes } from './modules/templates/templates.routes';
+import type { CertificateQueue } from './jobs/queues';
+import { batchRoutes } from './modules/batches/batches.routes';
 
 /**
  * Everything the HTTP layer needs, passed in rather than imported, so tests can build the app
@@ -25,6 +27,7 @@ export interface AppDeps {
   prisma: PrismaClient;
   storage: Storage;
   email: EmailProvider;
+  queue: CertificateQueue;
   /** Defaults to the system clock; tests pass a controllable one. */
   now?: () => Date;
 }
@@ -88,6 +91,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       await api.register(healthRoutes(deps));
       await api.register(authRoutes({ otp, session }));
       await api.register(templateRoutes({ prisma: deps.prisma, storage: deps.storage, session }));
+      await api.register(
+        batchRoutes({ prisma: deps.prisma, storage: deps.storage, queue: deps.queue, session }),
+      );
     },
     { prefix: '/api' },
   );

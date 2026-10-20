@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { BATCH_MAX_ROWS } from './csv';
+import { BATCH_STATUSES, CERTIFICATE_STATUSES } from './enums';
+import { LayoutSchema } from './layout';
 
 /** Placeholders the organizer can use in the email subject and message. */
 export const EMAIL_PLACEHOLDERS = ['{name}', '{event}', '{issuer}'] as const;
@@ -36,3 +39,65 @@ export interface PlaceholderValues {
 export function fillPlaceholders(template: string, values: PlaceholderValues): string {
   return template.replace(/\{(name|event|issuer)\}/g, (_, key: keyof PlaceholderValues) => values[key]);
 }
+
+/** One recipient as sent to POST /batches. The API re-validates every row with validateRows. */
+export const RecipientSchema = z.object({
+  name: z.string().max(500),
+  email: z.string().max(500),
+});
+
+export const BatchCreateSchema = z.object({
+  templateId: z.string().min(1).max(64),
+  layout: LayoutSchema,
+  event: EventDetailsSchema,
+  recipients: z
+    .array(RecipientSchema)
+    .min(1, 'Add at least one participant')
+    .max(BATCH_MAX_ROWS, `A batch can have up to ${BATCH_MAX_ROWS} participants`),
+});
+export type BatchCreate = z.infer<typeof BatchCreateSchema>;
+
+export const BatchCountsSchema = z.object({
+  total: z.number().int(),
+  queued: z.number().int(),
+  generated: z.number().int(),
+  sent: z.number().int(),
+  failed: z.number().int(),
+});
+export type BatchCounts = z.infer<typeof BatchCountsSchema>;
+
+export const BatchSummarySchema = z.object({
+  id: z.string(),
+  status: z.enum(BATCH_STATUSES),
+  eventName: z.string(),
+  issuerName: z.string(),
+  createdAt: z.string(),
+  counts: BatchCountsSchema,
+});
+export type BatchSummary = z.infer<typeof BatchSummarySchema>;
+export const BatchResponseSchema = z.object({ batch: BatchSummarySchema });
+
+export const CertificateRowSchema = z.object({
+  id: z.string(),
+  rowIndex: z.number().int(),
+  recipientName: z.string(),
+  recipientEmail: z.string(),
+  status: z.enum(CERTIFICATE_STATUSES),
+  error: z.string().nullable(),
+  sentAt: z.string().nullable(),
+});
+export type CertificateRow = z.infer<typeof CertificateRowSchema>;
+
+export const CERTIFICATE_PAGE_MAX = 200;
+export const CertificatePageSchema = z.object({
+  items: z.array(CertificateRowSchema),
+  /** Pass as ?cursor= to get the next page; null on the last page. */
+  nextCursor: z.number().int().nullable(),
+});
+export type CertificatePage = z.infer<typeof CertificatePageSchema>;
+
+export const CertificateListQuerySchema = z.object({
+  status: z.enum(CERTIFICATE_STATUSES).optional(),
+  cursor: z.coerce.number().int().min(-1).optional(),
+  limit: z.coerce.number().int().min(1).max(CERTIFICATE_PAGE_MAX).default(100),
+});

@@ -10,6 +10,7 @@ import {
   S3ServiceException,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'node:stream';
 import type { Env } from '../config/env';
 
 export interface ObjectInfo {
@@ -39,7 +40,28 @@ export interface Storage {
   ): Promise<string>;
   head(key: string): Promise<ObjectInfo | null>;
   getBytes(key: string): Promise<Uint8Array>;
+  /** Streams an object, e.g. into a ZIP, without holding it all in memory. */
+  getStream(key: string): Promise<Readable>;
+  putBytes(key: string, bytes: Uint8Array, contentType: string): Promise<void>;
+  /**
+   * Short-lived download URL. `downloadName` sets Content-Disposition so the browser saves the
+   * file under a readable name instead of the storage key.
+   */
+  presignGet(key: string, expiresInSeconds: number, downloadName?: string): Promise<string>;
   delete(key: string): Promise<void>;
+}
+
+/**
+ * RFC 6266 attachment header: an ASCII fallback name plus the UTF-8 original, so "Zoë.pdf"
+ * downloads correctly everywhere.
+ */
+export function contentDisposition(fileName: string): string {
+  const ascii =
+    fileName
+      .normalize('NFKD')
+      .replace(/[^\x20-\x7e]/g, '')
+      .replace(/["\\]/g, '') || 'download';
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 const isNotFound = (err: unknown) =>
@@ -84,6 +106,28 @@ export class S3Storage implements Storage {
     const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     if (!res.Body) throw new Error(`Empty body for ${key}`);
     return res.Body.transformToByteArray();
+  }
+
+  async getStream(key: string): Promise<Readable> {
+    const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    // In Node the SDK's body is an http.IncomingMessage, which is a Readable.
+    if (!(res.Body instanceof Readable)) throw new Error(`Unexpected body type for ${key}`);
+    return res.Body;
+  }
+
+  async putBytes(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: bytes, ContentType: contentType }),
+    );
+  }
+
+  presignGet(key: string, expiresInSeconds: number, downloadName?: string): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ...(downloadName && { ResponseContentDisposition: contentDisposition(downloadName) }),
+    });
+    return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
   }
 
   async delete(key: string): Promise<void> {

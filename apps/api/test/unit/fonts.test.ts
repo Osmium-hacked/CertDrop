@@ -1,8 +1,14 @@
 import fontkit from '@pdf-lib/fontkit';
-import { CERT_FONT_META, FALLBACK_FONT_FILE, findUnsupportedCharacters } from '@certdrop/shared';
+import {
+  CERT_FONT_META,
+  FALLBACK_FONT_FILE,
+  findUnsupportedCharacters,
+  MISSING_GLYPHS,
+} from '@certdrop/shared';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { computeCoverage } from '../../scripts/font-coverage';
 
 const FONTS_DIR = path.resolve(import.meta.dirname, '../../../../packages/shared/fonts');
 const load = (file: string) => fontkit.create(readFileSync(path.join(FONTS_DIR, file)));
@@ -27,5 +33,10 @@ describe('bundled certificate fonts', () => {
       });
       expect(missing, meta.label).toEqual([]);
     }
+  });
+
+  it('the generated coverage table matches the font files', () => {
+    // If this fails, a font file changed: run `pnpm --filter @certdrop/api fonts:coverage`.
+    expect(computeCoverage()).toEqual(MISSING_GLYPHS);
   });
 });

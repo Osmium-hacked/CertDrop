@@ -42,6 +42,15 @@ export function BatchDraftProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const [batchId, setBatchId] = useState<string | null>(null);
+
+  const reset = useCallback(() => {
+    setTemplate(null);
+    setParticipants(null);
+    setEvent(defaultEventDetails());
+    setBatchId(null);
+  }, [setTemplate]);
+
   const validation = useMemo(
     () =>
       participants ? validateRows(participants.rows, participants.mapping, participants.overrides) : null,
@@ -55,6 +64,9 @@ export function BatchDraftProvider({ children }: { children: ReactNode }) {
       participants,
       validation,
       event,
+      batchId,
+      setBatchId,
+      reset,
       setTemplate,
       updateLayout,
       setParticipants,
@@ -67,6 +79,8 @@ export function BatchDraftProvider({ children }: { children: ReactNode }) {
       participants,
       validation,
       event,
+      batchId,
+      reset,
       setTemplate,
       updateLayout,
       updateParticipants,

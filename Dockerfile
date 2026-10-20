@@ -29,6 +29,7 @@ RUN pnpm --filter @certdrop/api build
 # runtime packages.
 RUN pnpm --filter @certdrop/api deploy --prod --legacy /out \
   && cp -r apps/api/dist apps/api/prisma /out/ \
+  && cp -r packages/shared/fonts /out/fonts \
   && cd /out && node_modules/.bin/prisma generate
 
 # ---- runtime ----
@@ -37,6 +38,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
+# The worker embeds these TTFs in every certificate.
+ENV FONTS_DIR=/app/fonts
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 USER node

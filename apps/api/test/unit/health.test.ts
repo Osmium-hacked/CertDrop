@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app';
 import type { Storage } from '../../src/lib/storage';
 import { testEnv } from '../helpers/env';
-import { CapturingEmailProvider, InMemoryStorage } from '../helpers/fakes';
+import { CapturingEmailProvider, InMemoryStorage, noopQueue } from '../helpers/fakes';
 
 const env = testEnv();
 
@@ -27,6 +27,7 @@ async function makeApp(dbOk: boolean, storageOk: boolean) {
     logger: pino({ level: 'silent' }),
     prisma: fakePrisma(dbOk),
     storage: fakeStorage(storageOk),
+    queue: noopQueue,
     email: new CapturingEmailProvider(),
   });
 }

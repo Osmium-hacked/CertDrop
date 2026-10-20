@@ -61,6 +61,11 @@ export interface BatchDraft {
   /** Validated rows, computed once per change and shared by every component that needs them. */
   validation: ValidationResult | null;
   event: EventDetails;
+  /** Set once the batch has been created; the wizard then shows its progress and locks editing. */
+  batchId: string | null;
+  setBatchId: (id: string | null) => void;
+  /** Clears everything for a new batch. */
+  reset: () => void;
   setTemplate: (template: LoadedTemplate | null) => void;
   updateLayout: (patch: Partial<Layout>) => void;
   setParticipants: (participants: ParticipantsDraft | null) => void;

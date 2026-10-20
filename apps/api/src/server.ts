@@ -1,6 +1,8 @@
 import { buildApp } from './app';
 import { loadEnv } from './config/env';
 import { createEmailProvider } from './email';
+import { createBoss } from './jobs/boss';
+import { ensureQueues, PgBossCertificateQueue } from './jobs/queues';
 import { createLogger } from './lib/logger';
 import { createPrisma } from './lib/prisma';
 import { createS3Storage } from './lib/storage';
@@ -10,19 +12,24 @@ const logger = createLogger(env, 'api');
 const prisma = createPrisma(env);
 const storage = createS3Storage(env);
 const email = createEmailProvider(env);
-
-const app = await buildApp({ env, logger, prisma, storage, email });
+// The API only enqueues jobs; the worker process runs them.
+const boss = createBoss(env, logger, 'api');
 
 const shutdown = async (signal: string) => {
   logger.info({ signal }, 'shutting down');
   await app.close();
+  await boss.stop({ graceful: false });
   await prisma.$disconnect();
   process.exit(0);
 };
 process.once('SIGINT', () => void shutdown('SIGINT'));
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
+let app: Awaited<ReturnType<typeof buildApp>>;
 try {
+  await boss.start();
+  await ensureQueues(boss);
+  app = await buildApp({ env, logger, prisma, storage, email, queue: new PgBossCertificateQueue(boss) });
   await app.listen({ host: env.HOST, port: env.PORT });
 } catch (err) {
   logger.fatal({ err }, 'failed to start');

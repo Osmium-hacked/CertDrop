@@ -7,7 +7,7 @@ import { createS3Storage, type S3Storage } from '../../src/lib/storage';
 import { signIn } from '../helpers/auth';
 import { resetDatabase, testPrisma } from '../helpers/db';
 import { TEST_STORAGE_ENV, testEnv } from '../helpers/env';
-import { CapturingEmailProvider } from '../helpers/fakes';
+import { CapturingEmailProvider, noopQueue } from '../helpers/fakes';
 import { jpegFixture, makePdf, makePng } from '../helpers/files';
 
 const prisma = testPrisma();
@@ -21,7 +21,7 @@ let cookies: Record<string, string>;
 beforeEach(async () => {
   await resetDatabase(prisma);
   email = new CapturingEmailProvider();
-  app = await buildApp({ env, logger: pino({ level: 'silent' }), prisma, storage, email });
+  app = await buildApp({ env, logger: pino({ level: 'silent' }), prisma, storage, email, queue: noopQueue });
   cookies = await signIn(app, email, 'organizer@example.com');
 });
 

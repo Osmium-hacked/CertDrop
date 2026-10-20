@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/ui/EmptyState';
 import { ArrowLeftIcon } from '../../components/ui/icons';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { VerifyEmailStep } from '../auth/VerifyEmailStep';
 import { BatchDraftProvider } from '../batch/BatchDraftProvider';
+import { useBatchDraft } from '../batch/draft';
 import { Stepper } from './Stepper';
 import { STEPS } from './steps';
 import { useStepStatus } from './useStepStatus';
@@ -18,6 +18,7 @@ const ENTER_OWNERS = 'input, textarea, button, a, select, [contenteditable="true
 // step Papa Parse. Someone who only verifies their email downloads neither.
 const TemplateStep = lazy(() => import('../template/TemplateStep'));
 const ParticipantsStep = lazy(() => import('../participants/ParticipantsStep'));
+const SendStep = lazy(() => import('../send/SendStep'));
 
 export function Wizard() {
   return (
@@ -29,6 +30,9 @@ export function Wizard() {
 
 function WizardFlow() {
   const status = useStepStatus();
+  const draft = useBatchDraft();
+  // Once a batch is sending, editing earlier steps can't change it; "Start another batch" resets.
+  const locked = draft.batchId !== null;
 
   const [selected, setSelected] = useState(0);
   const [reached, setReached] = useState(0);
@@ -46,10 +50,17 @@ function WizardFlow() {
 
   const goTo = useCallback(
     (index: number) => {
-      if (index >= 0 && index <= furthest) setSelected(index);
+      if (!locked && index >= 0 && index <= furthest) setSelected(index);
     },
-    [furthest],
+    [furthest, locked],
   );
+
+  const startOver = useCallback(() => {
+    draft.reset();
+    // Still signed in, so the next batch starts at the template step.
+    setSelected(1);
+    setReached(1);
+  }, [draft]);
 
   /** Moves forward unconditionally; used by steps that know they just completed. */
   const advance = useCallback(() => {
@@ -80,7 +91,7 @@ function WizardFlow() {
     <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_0_0_1px_rgb(0_0_0/0.4),0_24px_80px_-24px_rgb(0_0_0/0.8)]">
       {/* App-window title bar */}
       <div className="flex items-center justify-between gap-4 border-b border-line bg-white/[0.015] px-4 py-3 sm:px-5">
-        <Stepper steps={STEPS} current={current} furthest={furthest} onSelect={goTo} />
+        <Stepper steps={STEPS} current={current} furthest={locked ? current : furthest} onSelect={goTo} />
         <span className="hidden shrink-0 text-xs text-muted tabular-nums md:inline">
           Step {current + 1} of {STEPS.length}
         </span>
@@ -119,40 +130,44 @@ function WizardFlow() {
                   <ParticipantsStep />
                 </Suspense>
               ) : (
-                <EmptyState
-                  icon={step.icon}
-                  title="This step is being built"
-                  description="The layout, navigation and keyboard handling are in place. The step’s controls arrive in an upcoming milestone."
-                />
+                <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                  <SendStep onStartOver={startOver} />
+                </Suspense>
               )}
             </div>
           </motion.section>
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center justify-between border-t border-line px-4 py-3 sm:px-5">
-        <Button variant="ghost" size="sm" onClick={() => goTo(current - 1)} disabled={current === 0}>
-          <ArrowLeftIcon />
-          Back
-        </Button>
-        <div className="flex items-center gap-3">
-          {canContinue ? (
-            <span className="hidden text-xs text-muted sm:inline">
-              Press <kbd className="rounded border border-line-strong px-1 font-sans text-[11px]">Enter</kbd>{' '}
-              to continue
-            </span>
-          ) : (
-            hint && (
-              <span className="text-right text-xs text-muted" aria-live="polite">
-                {hint}
-              </span>
-            )
-          )}
-          <Button variant="primary" size="sm" onClick={next} disabled={!canContinue}>
-            Continue
+      {/* No footer once a batch is sending: there's nothing to go back to or continue with. */}
+      {!locked && (
+        <div className="flex items-center justify-between border-t border-line px-4 py-3 sm:px-5">
+          <Button variant="ghost" size="sm" onClick={() => goTo(current - 1)} disabled={current === 0}>
+            <ArrowLeftIcon />
+            Back
           </Button>
+          {!isLast && (
+            <div className="flex items-center gap-3">
+              {canContinue ? (
+                <span className="hidden text-xs text-muted sm:inline">
+                  Press{' '}
+                  <kbd className="rounded border border-line-strong px-1 font-sans text-[11px]">Enter</kbd> to
+                  continue
+                </span>
+              ) : (
+                hint && (
+                  <span className="text-right text-xs text-muted" aria-live="polite">
+                    {hint}
+                  </span>
+                )
+              )}
+              <Button variant="primary" size="sm" onClick={next} disabled={!canContinue}>
+                Continue
+              </Button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
