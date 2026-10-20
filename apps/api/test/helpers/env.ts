@@ -13,6 +13,16 @@ export const BASE_TEST_ENV = {
   OTP_SECRET: 'test-otp-secret-0123456789abcdefghij',
 } satisfies NodeJS.ProcessEnv;
 
+/** The docker-compose (or CI service) object store, with a bucket of its own. */
+export const TEST_STORAGE_ENV = {
+  S3_ENDPOINT: process.env.TEST_S3_ENDPOINT ?? 'http://localhost:9000',
+  S3_REGION: 'us-east-1',
+  S3_BUCKET: 'certdrop-test',
+  S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? 'certdrop',
+  S3_SECRET_ACCESS_KEY: process.env.TEST_S3_SECRET_ACCESS_KEY ?? 'certdrop-dev-secret',
+  S3_FORCE_PATH_STYLE: 'true',
+} satisfies NodeJS.ProcessEnv;
+
 export function testEnv(overrides: NodeJS.ProcessEnv = {}): Env {
   return loadEnv({ ...BASE_TEST_ENV, ...overrides });
 }

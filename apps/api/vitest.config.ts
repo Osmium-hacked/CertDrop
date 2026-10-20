@@ -9,12 +9,13 @@ export default defineConfig({
         test: { name: 'unit', include: ['test/unit/**/*.test.ts'] },
       },
       {
-        // Runs against a real Postgres (the docker-compose one, database "certdrop_test").
+        // Runs against the docker-compose services: Postgres (database "certdrop_test") and
+        // RustFS (bucket "certdrop-test").
         extends: true,
         test: {
           name: 'integration',
           include: ['test/integration/**/*.test.ts'],
-          globalSetup: ['test/setup/database.ts'],
+          globalSetup: ['test/setup/database.ts', 'test/setup/storage.ts'],
           // Files share one database and truncate it between tests, so they run one at a time.
           fileParallelism: false,
           testTimeout: 15_000,

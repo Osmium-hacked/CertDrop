@@ -28,8 +28,17 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 20
+      # S3-compatible storage for the upload tests (bucket "certdrop-test", created by the tests).
+      storage:
+        image: rustfs/rustfs:1.0.3
+        env:
+          RUSTFS_ACCESS_KEY: certdrop
+          RUSTFS_SECRET_KEY: certdrop-dev-secret
+        ports:
+          - 9000:9000
     env:
       TEST_DATABASE_URL: postgresql://certdrop:certdrop@localhost:5432/certdrop_test
+      TEST_S3_ENDPOINT: http://localhost:9000
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4 # version comes from "packageManager" in package.json

@@ -24,7 +24,34 @@ export class CapturingEmailProvider implements EmailProvider {
   }
 }
 
-export const okStorage: Storage = { ping: () => Promise.resolve() };
+/** In-memory object store for unit tests. `pingError` simulates an unreachable bucket. */
+export class InMemoryStorage implements Storage {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+  constructor(private readonly pingError?: Error) {}
+
+  ping(): Promise<void> {
+    return this.pingError ? Promise.reject(this.pingError) : Promise.resolve();
+  }
+  presignPut(key: string): Promise<string> {
+    return Promise.resolve(`https://storage.test/${encodeURIComponent(key)}?signature=fake`);
+  }
+  head(key: string) {
+    const object = this.objects.get(key);
+    return Promise.resolve(
+      object ? { sizeBytes: object.bytes.length, contentType: object.contentType } : null,
+    );
+  }
+  getBytes(key: string): Promise<Uint8Array> {
+    const object = this.objects.get(key);
+    return object ? Promise.resolve(object.bytes) : Promise.reject(new Error(`No object ${key}`));
+  }
+  delete(key: string): Promise<void> {
+    this.objects.delete(key);
+    return Promise.resolve();
+  }
+}
+
+export const okStorage: Storage = new InMemoryStorage();
 
 /** A clock tests can move forward. */
 export class TestClock {

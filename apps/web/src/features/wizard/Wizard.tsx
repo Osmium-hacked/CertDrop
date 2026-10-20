@@ -1,10 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ArrowLeftIcon } from '../../components/ui/icons';
 import { SectionLabel } from '../../components/ui/SectionLabel';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { useSession } from '../auth/session';
+import { BatchDraftProvider } from '../batch/BatchDraftProvider';
+import { useBatchDraft } from '../batch/draft';
 import { VerifyEmailStep } from '../auth/VerifyEmailStep';
 import { Stepper } from './Stepper';
 import { STEPS } from './steps';
@@ -12,8 +15,20 @@ import { STEPS } from './steps';
 /** Elements where Enter already means something, so it must not also advance the wizard. */
 const ENTER_OWNERS = 'input, textarea, button, a, select, [contenteditable="true"]';
 
+// The editor pulls in Konva (and, for PDFs, pdf.js); load it only when step 2 is reached.
+const TemplateStep = lazy(() => import('../template/TemplateStep'));
+
 export function Wizard() {
+  return (
+    <BatchDraftProvider>
+      <WizardFlow />
+    </BatchDraftProvider>
+  );
+}
+
+function WizardFlow() {
   const session = useSession();
+  const draft = useBatchDraft();
   const signedIn = Boolean(session.data?.organizer);
 
   const [selected, setSelected] = useState(0);
@@ -25,7 +40,13 @@ export function Wizard() {
 
   const step = STEPS[current] ?? STEPS[0]!;
   const isLast = current === STEPS.length - 1;
-  const canContinue = !isLast && (step.id !== 'verify' || signedIn);
+  const stepComplete: Record<(typeof STEPS)[number]['id'], boolean> = {
+    verify: signedIn,
+    template: draft.template !== null,
+    participants: false,
+    send: false,
+  };
+  const canContinue = !isLast && stepComplete[step.id];
 
   const goTo = useCallback(
     (index: number) => {
@@ -93,6 +114,10 @@ export function Wizard() {
             <div className="mt-8">
               {step.id === 'verify' ? (
                 <VerifyEmailStep onVerified={advance} />
+              ) : step.id === 'template' ? (
+                <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                  <TemplateStep />
+                </Suspense>
               ) : (
                 <EmptyState
                   icon={step.icon}

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app';
 import type { Storage } from '../../src/lib/storage';
 import { testEnv } from '../helpers/env';
-import { CapturingEmailProvider } from '../helpers/fakes';
+import { CapturingEmailProvider, InMemoryStorage } from '../helpers/fakes';
 
 const env = testEnv();
 
@@ -18,7 +18,7 @@ function fakePrisma(ok: boolean): PrismaClient {
 }
 
 function fakeStorage(ok: boolean): Storage {
-  return { ping: () => (ok ? Promise.resolve() : Promise.reject(new Error('NoSuchBucket'))) };
+  return new InMemoryStorage(ok ? undefined : new Error('NoSuchBucket'));
 }
 
 async function makeApp(dbOk: boolean, storageOk: boolean) {

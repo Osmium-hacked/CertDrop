@@ -13,6 +13,7 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { OtpService } from './modules/auth/otp.service';
 import { SessionManager } from './modules/auth/session';
 import { healthRoutes } from './modules/health/health.routes';
+import { templateRoutes } from './modules/templates/templates.routes';
 
 /**
  * Everything the HTTP layer needs, passed in rather than imported, so tests can build the app
@@ -80,11 +81,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     now,
   });
   const session = new SessionManager(env.SESSION_SECRET, env.NODE_ENV === 'production');
+  app.decorateRequest('organizer', null);
 
   await app.register(
     async (api) => {
       await api.register(healthRoutes(deps));
       await api.register(authRoutes({ otp, session }));
+      await api.register(templateRoutes({ prisma: deps.prisma, storage: deps.storage, session }));
     },
     { prefix: '/api' },
   );
