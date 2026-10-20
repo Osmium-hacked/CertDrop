@@ -1,6 +1,7 @@
 # One image, two processes. Run the API with the default command and the worker with
 #   docker run <image> node dist/worker.js
-# Render/Railway: two services from this image, differing only in their start command.
+# Or a single process doing both: RUN_WORKER_IN_API=true, started with `sh docker-start.sh`
+# to apply migrations first (render.yaml does this on Render's free plan).
 
 FROM node:24-slim AS base
 # Prisma's query engine links against OpenSSL.
@@ -28,7 +29,7 @@ RUN pnpm --filter @certdrop/api build
 # @certdrop/shared is a devDependency (tsup inlines it), so the pruned copy contains only real
 # runtime packages.
 RUN pnpm --filter @certdrop/api deploy --prod --legacy /out \
-  && cp -r apps/api/dist apps/api/prisma /out/ \
+  && cp -r apps/api/dist apps/api/prisma apps/api/docker-start.sh /out/ \
   && cp -r packages/shared/fonts /out/fonts \
   && cd /out && node_modules/.bin/prisma generate
 

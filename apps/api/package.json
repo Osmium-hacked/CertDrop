@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "cleanup": "tsx --env-file-if-exists=.env scripts/cleanup.ts",
     "fonts:coverage": "tsx scripts/font-coverage.ts",
+    "gmail:token": "tsx --env-file-if-exists=.env scripts/gmail-token.ts",
     "seed:template": "tsx scripts/make-sample-template.ts",
     "storage:init": "tsx --env-file-if-exists=.env scripts/storage-init.ts",
     "postinstall": "prisma generate"

@@ -42,11 +42,24 @@ const EnvSchema = z.object({
   /** HMAC key for stored OTP hashes. Separate from SESSION_SECRET so rotating one doesn't affect the other. */
   OTP_SECRET: z.string().min(32, 'OTP_SECRET must be at least 32 characters'),
 
+  /**
+   * Runs the job worker inside the API process. For single-instance hosts without background
+   * workers (Render's free plan); otherwise run dist/worker.js as its own service.
+   */
+  RUN_WORKER_IN_API: z.stringbool().default(false),
+
   /** "file" writes emails to MAIL_OUTBOX_DIR instead of sending them (development and tests only). */
-  EMAIL_PROVIDER: z.enum(['file', 'resend']).default('file'),
-  /** Sender address on a domain verified with the provider. The display name is set per email. */
+  EMAIL_PROVIDER: z.enum(['file', 'resend', 'gmail']).default('file'),
+  /**
+   * Sender address: on a domain verified with Resend, or the Gmail account itself for gmail.
+   * The display name is set per email.
+   */
   EMAIL_FROM_ADDRESS: z.email().default('certificates@certdrop.local'),
   RESEND_API_KEY: z.string().min(1).optional(),
+  /** Google OAuth client and the refresh token from `pnpm --filter @certdrop/api gmail:token`. */
+  GMAIL_CLIENT_ID: z.string().min(1).optional(),
+  GMAIL_CLIENT_SECRET: z.string().min(1).optional(),
+  GMAIL_REFRESH_TOKEN: z.string().min(1).optional(),
   MAIL_OUTBOX_DIR: z.string().default('.mail-outbox'),
   /**
    * Emails per second across the worker. Resend's default limit is 2/s; going over it just
@@ -79,11 +92,17 @@ const RefinedEnvSchema = EnvSchema.superRefine((env, ctx) => {
       message: 'Required when EMAIL_PROVIDER=resend',
     });
   }
+  if (env.EMAIL_PROVIDER === 'gmail') {
+    for (const key of ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN'] as const) {
+      if (!env[key])
+        ctx.addIssue({ code: 'custom', path: [key], message: 'Required when EMAIL_PROVIDER=gmail' });
+    }
+  }
   if (env.NODE_ENV === 'production' && env.EMAIL_PROVIDER === 'file') {
     ctx.addIssue({
       code: 'custom',
       path: ['EMAIL_PROVIDER'],
-      message: 'The file provider never delivers mail; use resend in production',
+      message: 'The file provider never delivers mail; use resend or gmail in production',
     });
   }
   if (env.NODE_ENV === 'production' && !env.TURNSTILE_SECRET_KEY) {

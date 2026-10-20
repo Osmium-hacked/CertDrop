@@ -42,6 +42,26 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...BASE_TEST_ENV, EMAIL_PROVIDER: 'resend' })).toThrow(/RESEND_API_KEY/);
   });
 
+  it('requires all three Gmail credentials when sending through Gmail', () => {
+    const gmail = {
+      ...BASE_TEST_ENV,
+      EMAIL_PROVIDER: 'gmail',
+      GMAIL_CLIENT_ID: 'id.apps.googleusercontent.com',
+      GMAIL_CLIENT_SECRET: 'secret',
+      GMAIL_REFRESH_TOKEN: '1//token',
+    };
+    expect(loadEnv(gmail).EMAIL_PROVIDER).toBe('gmail');
+    expect(() => loadEnv({ ...gmail, GMAIL_REFRESH_TOKEN: undefined })).toThrow(/GMAIL_REFRESH_TOKEN/);
+    expect(() => loadEnv({ ...gmail, GMAIL_CLIENT_ID: undefined, GMAIL_CLIENT_SECRET: undefined })).toThrow(
+      /GMAIL_CLIENT_ID[\s\S]*GMAIL_CLIENT_SECRET/,
+    );
+  });
+
+  it('runs the worker in the API only when asked', () => {
+    expect(loadEnv(BASE_TEST_ENV).RUN_WORKER_IN_API).toBe(false);
+    expect(loadEnv({ ...BASE_TEST_ENV, RUN_WORKER_IN_API: 'true' }).RUN_WORKER_IN_API).toBe(true);
+  });
+
   it('refuses unsafe settings in production', () => {
     const production = {
       ...BASE_TEST_ENV,

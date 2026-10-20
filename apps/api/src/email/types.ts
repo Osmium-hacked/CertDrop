@@ -23,7 +23,7 @@ export interface SendResult {
 }
 
 /**
- * Anything that can send an email. Swap Resend for SES or SMTP by adding an implementation;
+ * Anything that can send an email. Add SES or SMTP by adding an implementation;
  * callers never import a specific provider.
  */
 export interface EmailProvider {
@@ -47,10 +47,14 @@ export class EmailSendError extends Error {
  * angle brackets, CR/LF), since the name can contain organizer-supplied text.
  */
 export function formatFrom(name: string, address: string): string {
-  const safe =
+  return `"${sanitizeDisplayName(name)}" <${address}>`;
+}
+
+export function sanitizeDisplayName(name: string): string {
+  return (
     name
       .replace(/[\r\n"<>\\]/g, '')
       .trim()
-      .slice(0, 100) || 'CertDrop';
-  return `"${safe}" <${address}>`;
+      .slice(0, 100) || 'CertDrop'
+  );
 }

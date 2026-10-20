@@ -1,30 +1,20 @@
-# Render Blueprint: the API and the worker are two services built from the same Docker image.
+# Render Blueprint for the free plan: one web service running both the API and the job worker.
 # Deploy: Render dashboard → New → Blueprint → pick this repo. Fill the `sync: false` values when
 # prompted (see README → Deployment). Secrets marked generateValue are created by Render.
+#
+# Free web services sleep after 15 idle minutes and take about a minute to wake; there are no free
+# background workers and no pre-deploy step, hence RUN_WORKER_IN_API and docker-start.sh. On a
+# paid plan, run `node dist/worker.js` as a separate worker service instead (README → Scaling up).
 
 services:
   - type: web
     name: certdrop-api
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
+    # Applies pending migrations, then starts the API.
+    dockerCommand: sh docker-start.sh
+    plan: free
     healthCheckPath: /api/health
-    # Applies pending Prisma migrations before the new version takes traffic.
-    preDeployCommand: node_modules/.bin/prisma migrate deploy
-    envVars:
-      - fromGroup: certdrop
-
-  - type: worker
-    name: certdrop-worker
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerCommand: node dist/worker.js
-    plan: starter
-    envVars:
-      - fromGroup: certdrop
-
-envVarGroups:
-  - name: certdrop
     envVars:
       - key: NODE_ENV
         value: production
@@ -36,6 +26,11 @@ envVarGroups:
       # Vercel (rewrite) → Render's proxy → API.
       - key: TRUST_PROXY_HOPS
         value: '2'
+      - key: RUN_WORKER_IN_API
+        value: 'true'
+      # 0.1 CPU: render one certificate at a time so the API stays responsive.
+      - key: GENERATE_CONCURRENCY
+        value: '1'
 
       # Neon: use the direct (non-pooled) connection string. pg-boss needs session features
       # that PgBouncer's transaction pooling doesn't provide.
@@ -61,17 +56,25 @@ envVarGroups:
       - key: OTP_SECRET
         generateValue: true
 
-      # Resend, with a verified sending domain
+      # Gmail API (no domain needed). Get the refresh token with
+      #   pnpm --filter @certdrop/api gmail:token
       - key: EMAIL_PROVIDER
-        value: resend
-      - key: RESEND_API_KEY
-        sync: false
+        value: gmail
+      # The Gmail address itself.
       - key: EMAIL_FROM_ADDRESS
         sync: false
-      - key: RESEND_WEBHOOK_SECRET
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
         sync: false
       - key: EMAIL_RATE_PER_SECOND
-        value: '2'
+        value: '1'
 
       - key: TURNSTILE_SECRET_KEY
         sync: false
+
+      # Gmail allows about 500 recipients a day, so keep each organizer well under it.
+      - key: BATCHES_PER_DAY
+        value: '3'

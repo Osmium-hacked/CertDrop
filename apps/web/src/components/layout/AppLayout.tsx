@@ -2,6 +2,7 @@ import { Outlet } from 'react-router';
 import { Toaster } from 'sonner';
 import { SiteFooter } from './SiteFooter';
 import { SiteHeader } from './SiteHeader';
+import { WakeNotice } from './WakeNotice';
 
 export function AppLayout() {
   return (
@@ -13,6 +14,7 @@ export function AppLayout() {
         Skip to content
       </a>
       <SiteHeader />
+      <WakeNotice />
       <main id="main" className="mx-auto w-full max-w-[1100px] flex-1 px-4 sm:px-6">
         <Outlet />
       </main>

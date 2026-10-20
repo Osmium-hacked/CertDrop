@@ -1,16 +1,9 @@
-import { HealthResponseSchema } from '@certdrop/shared';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { api } from '../../lib/api';
 import { cn } from '../../lib/cn';
+import { useApiHealth } from '../../lib/useApiHealth';
 
 function ApiStatus() {
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['health'],
-    // 503 still carries a body that says which dependency is down.
-    queryFn: ({ signal }) => api('/health', HealthResponseSchema, { signal, acceptStatus: [503] }),
-    refetchInterval: 30_000,
-  });
+  const { data, isPending, isError } = useApiHealth();
 
   const state = isPending ? 'pending' : isError ? 'down' : data.status;
   const label = {
