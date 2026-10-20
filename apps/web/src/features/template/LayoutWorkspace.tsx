@@ -1,10 +1,10 @@
 import type { Box, Layout } from '@certdrop/shared';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Segmented } from '../../components/ui/Segmented';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useBatchDraft, type LoadedTemplate } from '../batch/draft';
-import { useCertFontsReady } from '../fonts/certFonts';
+import { measureWith, useCertFontsReady } from '../fonts/certFonts';
 import { LayoutControls } from './LayoutControls';
 import { LayoutEditor, type EditableBox } from './LayoutEditor';
 import { usePreviewFit } from './usePreviewFit';
@@ -29,7 +29,7 @@ interface LayoutWorkspaceProps {
 }
 
 export function LayoutWorkspace({ template, onReplace }: LayoutWorkspaceProps) {
-  const { layout, updateLayout } = useBatchDraft();
+  const { layout, updateLayout, validation } = useBatchDraft();
   const fontsReady = useCertFontsReady();
   const compact = useCompact();
   const [selected, setSelected] = useState<EditableBox>('name');
@@ -37,9 +37,19 @@ export function LayoutWorkspace({ template, onReplace }: LayoutWorkspaceProps) {
   const [sample, setSample] = useState(DEFAULT_SAMPLE);
   const replaceRef = useRef<HTMLInputElement>(null);
 
-  const previewName = previewMode === 'longest' ? LONGEST_SAMPLE : sample.trim() || DEFAULT_SAMPLE;
+  // Once participants are loaded, "longest" means the name that renders widest in the chosen
+  // font (not the one with most characters: "WWW" is wider than "iiii").
+  const longestName = useMemo(() => {
+    const names = validation?.valid.map((row) => row.name) ?? [];
+    if (names.length === 0) return LONGEST_SAMPLE;
+    const measure = measureWith(layout.font);
+    return names.reduce((widest, name) => (measure(name) > measure(widest) ? name : widest));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsReady invalidates measurements
+  }, [validation, layout.font, fontsReady]);
+
+  const previewName = previewMode === 'longest' ? longestName : sample.trim() || DEFAULT_SAMPLE;
   const preview = usePreviewFit(previewName, layout, template, fontsReady);
-  const longest = usePreviewFit(LONGEST_SAMPLE, layout, template, fontsReady);
+  const longest = usePreviewFit(longestName, layout, template, fontsReady);
 
   const onBoxChange = (which: EditableBox, box: Box) =>
     updateLayout(which === 'name' ? { nameBox: box } : ({ qrBox: box } satisfies Partial<Layout>));
@@ -119,7 +129,10 @@ export function LayoutWorkspace({ template, onReplace }: LayoutWorkspaceProps) {
           </p>
           {longest.fit.belowMinimum && (
             <p className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-[13px] text-warn">
-              Very long names would drop below {longest.minSize}pt here. Widen the box or lower the font size.
+              {longestName === LONGEST_SAMPLE
+                ? 'Very long names'
+                : `“${longestName}”, your longest participant name,`}{' '}
+              would drop below {longest.minSize}pt here. Widen the box or lower the font size.
             </p>
           )}
           {preview.unsupported.length > 0 && (

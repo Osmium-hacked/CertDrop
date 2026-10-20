@@ -1,12 +1,20 @@
-import { useRef, useState, type DragEvent } from 'react';
-import { Button } from '../../components/ui/Button';
-import { ImageIcon } from '../../components/ui/icons';
+import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
+import { Button } from './Button';
 
-const ACCEPT = 'image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf';
+interface FileDropProps {
+  title: string;
+  description: ReactNode;
+  accept: string;
+  icon: ReactNode;
+  onFile: (file: File) => void;
+  disabled?: boolean;
+  /** Extra content under the button, e.g. a "download a sample" link. */
+  footer?: ReactNode;
+}
 
 /** Drop target plus a real file button, so it works with mouse, keyboard and touch alike. */
-export function Dropzone({ onFile, disabled }: { onFile: (file: File) => void; disabled?: boolean }) {
+export function FileDrop({ title, description, accept, icon, onFile, disabled, footer }: FileDropProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -34,12 +42,10 @@ export function Dropzone({ onFile, disabled }: { onFile: (file: File) => void; d
         aria-hidden
         className="mb-4 grid size-10 place-items-center rounded-lg border border-line bg-elevated text-muted"
       >
-        <ImageIcon />
+        {icon}
       </div>
-      <p className="text-sm font-medium text-fg">Drop your certificate design here</p>
-      <p className="mt-1 max-w-sm text-sm text-muted">
-        PNG, JPG or a single-page PDF, up to 10 MB. Exports from Canva, Figma or Illustrator work well.
-      </p>
+      <p className="text-sm font-medium text-fg">{title}</p>
+      <p className="mt-1 max-w-sm text-sm text-muted">{description}</p>
       <Button
         variant="secondary"
         className="mt-5"
@@ -48,10 +54,11 @@ export function Dropzone({ onFile, disabled }: { onFile: (file: File) => void; d
       >
         Choose file
       </Button>
+      {footer && <div className="mt-4">{footer}</div>}
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={accept}
         className="sr-only"
         tabIndex={-1}
         aria-hidden

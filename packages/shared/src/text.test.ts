@@ -10,7 +10,7 @@ describe('normalizeName', () => {
   });
 
   it('trims and collapses whitespace, including tabs and non-breaking spaces', () => {
-    expect(normalizeName('\t Ana    Lima\n')).toBe('Ana Lima');
+    expect(normalizeName('\t Ana \u00a0  Lima\n')).toBe('Ana Lima');
   });
 });
 

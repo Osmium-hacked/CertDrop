@@ -1,6 +1,12 @@
-import type { Layout } from '@certdrop/shared';
+import { validateRows, type EventDetails, type Layout } from '@certdrop/shared';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { BatchDraftContext, DEFAULT_LAYOUT, type LoadedTemplate } from './draft';
+import {
+  BatchDraftContext,
+  DEFAULT_LAYOUT,
+  defaultEventDetails,
+  type LoadedTemplate,
+  type ParticipantsDraft,
+} from './draft';
 
 /**
  * Everything the organizer has set up so far, shared by the wizard steps. It lives in memory
@@ -10,6 +16,8 @@ import { BatchDraftContext, DEFAULT_LAYOUT, type LoadedTemplate } from './draft'
 export function BatchDraftProvider({ children }: { children: ReactNode }) {
   const [template, setTemplateState] = useState<LoadedTemplate | null>(null);
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
+  const [participants, setParticipants] = useState<ParticipantsDraft | null>(null);
+  const [event, setEvent] = useState<EventDetails>(defaultEventDetails);
 
   const setTemplate = useCallback((next: LoadedTemplate | null) => {
     setTemplateState((previous) => {
@@ -24,10 +32,46 @@ export function BatchDraftProvider({ children }: { children: ReactNode }) {
     (patch: Partial<Layout>) => setLayout((current) => ({ ...current, ...patch })),
     [],
   );
+  const updateParticipants = useCallback(
+    (patch: Partial<ParticipantsDraft>) =>
+      setParticipants((current) => (current ? { ...current, ...patch } : current)),
+    [],
+  );
+  const updateEvent = useCallback(
+    (patch: Partial<EventDetails>) => setEvent((current) => ({ ...current, ...patch })),
+    [],
+  );
+
+  const validation = useMemo(
+    () =>
+      participants ? validateRows(participants.rows, participants.mapping, participants.overrides) : null,
+    [participants],
+  );
 
   const value = useMemo(
-    () => ({ template, layout, setTemplate, updateLayout }),
-    [template, layout, setTemplate, updateLayout],
+    () => ({
+      template,
+      layout,
+      participants,
+      validation,
+      event,
+      setTemplate,
+      updateLayout,
+      setParticipants,
+      updateParticipants,
+      updateEvent,
+    }),
+    [
+      template,
+      layout,
+      participants,
+      validation,
+      event,
+      setTemplate,
+      updateLayout,
+      updateParticipants,
+      updateEvent,
+    ],
   );
   return <BatchDraftContext.Provider value={value}>{children}</BatchDraftContext.Provider>;
 }

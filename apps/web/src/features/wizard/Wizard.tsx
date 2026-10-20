@@ -5,18 +5,19 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ArrowLeftIcon } from '../../components/ui/icons';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { useSession } from '../auth/session';
-import { BatchDraftProvider } from '../batch/BatchDraftProvider';
-import { useBatchDraft } from '../batch/draft';
 import { VerifyEmailStep } from '../auth/VerifyEmailStep';
+import { BatchDraftProvider } from '../batch/BatchDraftProvider';
 import { Stepper } from './Stepper';
 import { STEPS } from './steps';
+import { useStepStatus } from './useStepStatus';
 
 /** Elements where Enter already means something, so it must not also advance the wizard. */
 const ENTER_OWNERS = 'input, textarea, button, a, select, [contenteditable="true"]';
 
-// The editor pulls in Konva (and, for PDFs, pdf.js); load it only when step 2 is reached.
+// Later steps load on demand: the editor pulls in Konva (and pdf.js for PDFs), the participant
+// step Papa Parse. Someone who only verifies their email downloads neither.
 const TemplateStep = lazy(() => import('../template/TemplateStep'));
+const ParticipantsStep = lazy(() => import('../participants/ParticipantsStep'));
 
 export function Wizard() {
   return (
@@ -27,26 +28,21 @@ export function Wizard() {
 }
 
 function WizardFlow() {
-  const session = useSession();
-  const draft = useBatchDraft();
-  const signedIn = Boolean(session.data?.organizer);
+  const status = useStepStatus();
 
   const [selected, setSelected] = useState(0);
   const [reached, setReached] = useState(0);
-  // Every step after the first needs a verified organizer. Deriving (rather than storing) these
-  // means signing out or an expired session drops the organizer back to step 1 automatically.
-  const current = signedIn ? selected : 0;
-  const furthest = signedIn ? reached : 0;
+  // A step is reachable only if every step before it is complete. Deriving this (rather than
+  // storing it) means signing out, an expired session or replacing the CSV with a broken one
+  // pulls the organizer back to the first step that needs attention.
+  const firstIncomplete = STEPS.findIndex((s) => !status[s.id].complete);
+  const furthest = Math.min(reached, firstIncomplete === -1 ? STEPS.length - 1 : firstIncomplete);
+  const current = Math.min(selected, furthest);
 
   const step = STEPS[current] ?? STEPS[0]!;
   const isLast = current === STEPS.length - 1;
-  const stepComplete: Record<(typeof STEPS)[number]['id'], boolean> = {
-    verify: signedIn,
-    template: draft.template !== null,
-    participants: false,
-    send: false,
-  };
-  const canContinue = !isLast && stepComplete[step.id];
+  const canContinue = !isLast && status[step.id].complete;
+  const hint = status[step.id].hint;
 
   const goTo = useCallback(
     (index: number) => {
@@ -118,6 +114,10 @@ function WizardFlow() {
                 <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
                   <TemplateStep />
                 </Suspense>
+              ) : step.id === 'participants' ? (
+                <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                  <ParticipantsStep />
+                </Suspense>
               ) : (
                 <EmptyState
                   icon={step.icon}
@@ -136,11 +136,17 @@ function WizardFlow() {
           Back
         </Button>
         <div className="flex items-center gap-3">
-          {canContinue && (
+          {canContinue ? (
             <span className="hidden text-xs text-muted sm:inline">
               Press <kbd className="rounded border border-line-strong px-1 font-sans text-[11px]">Enter</kbd>{' '}
               to continue
             </span>
+          ) : (
+            hint && (
+              <span className="text-right text-xs text-muted" aria-live="polite">
+                {hint}
+              </span>
+            )
           )}
           <Button variant="primary" size="sm" onClick={next} disabled={!canContinue}>
             Continue

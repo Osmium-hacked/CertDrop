@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import { Spinner } from '../../components/ui/Spinner';
 import { ApiRequestError } from '../../lib/api';
 import { useBatchDraft } from '../batch/draft';
-import { Dropzone } from './Dropzone';
+import { FileDrop } from '../../components/ui/FileDrop';
+import { ImageIcon } from '../../components/ui/icons';
 import { LayoutWorkspace } from './LayoutWorkspace';
 import { rasterizeTemplate } from './rasterize';
 import { uploadTemplate, type UploadPhase } from './upload';
@@ -63,7 +64,15 @@ export default function TemplateStep() {
 
   if (progress) return <UploadProgress {...progress} />;
   if (template) return <LayoutWorkspace template={template} onReplace={(file) => void handleFile(file)} />;
-  return <Dropzone onFile={(file) => void handleFile(file)} />;
+  return (
+    <FileDrop
+      title="Drop your certificate design here"
+      description="PNG, JPG or a single-page PDF, up to 10 MB. Exports from Canva, Figma or Illustrator work well."
+      accept="image/png,image/jpeg,application/pdf,.png,.jpg,.jpeg,.pdf"
+      icon={<ImageIcon />}
+      onFile={(file) => void handleFile(file)}
+    />
+  );
 }
 
 function UploadProgress({ fileName, phase, fraction }: Progress) {
