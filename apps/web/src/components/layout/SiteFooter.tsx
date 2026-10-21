@@ -42,6 +42,9 @@ export function SiteFooter() {
           <Link to="/verify" className="rounded-sm transition-colors hover:text-fg">
             Verify a certificate
           </Link>
+          <Link to="/privacy" className="rounded-sm transition-colors hover:text-fg">
+            Privacy
+          </Link>
           <ApiStatus />
         </nav>
       </div>

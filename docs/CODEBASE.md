@@ -1072,9 +1072,9 @@ participants, send, wizard), with small reusable pieces in `components/ui`.
 
 **`src/router.tsx`**
 
-- **Why:** The website has two pages.
-- **What:** `/` shows the home page and wizard; `/verify/:certId?` shows the verification page,
-  loaded only when visited. Both share the site layout.
+- **Why:** The website has three pages.
+- **What:** `/` shows the home page and wizard; `/verify/:certId?` shows the verification page and
+  `/privacy` the privacy policy, each loaded only when visited. All share the site layout.
 
 **`src/styles.css`**
 
@@ -1110,13 +1110,22 @@ participants, send, wizard), with small reusable pieces in `components/ui`.
     retry).
   - Adds a `noindex` tag and sets the tab title.
 
+**`src/routes/PrivacyPage.tsx`**
+
+- **Why:** A public app that stores names and email addresses should say what it does with them,
+  and Google requires a privacy policy URL before the Gmail sending app can be published.
+- **What:** A plain-language policy: what's stored (organizer email, participant names and
+  emails, files deleted after 30 days, certificate records kept for verification), that nothing is
+  tracked or sold, which services process data, the Gmail send-only permission and Google's
+  Limited Use requirements, and a contact address for deletion requests.
+
 ### Layout and reusable components (`src/components`)
 
 | File                    | Why it exists and what it does                                                                                                                                                                                                |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `layout/AppLayout.tsx`  | Page frame: skip-to-content link for keyboard users, header, main content, footer, and the toast area                                                                                                                         |
 | `layout/SiteHeader.tsx` | Logo linking home, and a "Verify a certificate" link                                                                                                                                                                          |
-| `layout/SiteFooter.tsx` | The 30-day file deletion note, a verify link, and a live API status dot                                                                                                                                                       |
+| `layout/SiteFooter.tsx` | The 30-day file deletion note, verify and privacy links, and a live API status dot                                                                                                                                            |
 | `layout/WakeNotice.tsx` | A "Waking up the server" banner under the header, shown while the API is unreachable or takes over 2.5 seconds to answer. Free hosting sleeps when idle and takes about a minute to start, so the first visitor knows to wait |
 | `ui/Button.tsx`         | One button style system: primary, secondary and ghost in two sizes, with disabled states                                                                                                                                      |
 | `ui/TextField.tsx`      | Labelled input with hint or error text linked for screen readers                                                                                                                                                              |
