@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EmailSendError, type EmailMessage } from '../../src/email';
-import { buildMimeMessage, encodeHeader, GmailEmailProvider } from '../../src/email/gmail.provider';
+import {
+  buildMimeMessage,
+  credentialFingerprint,
+  encodeHeader,
+  GmailEmailProvider,
+} from '../../src/email/gmail.provider';
 
 const message: EmailMessage = {
   to: 'zoe@example.com',
@@ -29,6 +34,14 @@ const decodedParts = (mime: string) =>
   [...mime.matchAll(/Content-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+?)\r\n\r\n/g)].map(
     ([, b64]) => Buffer.from(b64!.replace(/\r\n/g, ''), 'base64').toString('utf8'),
   );
+
+describe('credentialFingerprint', () => {
+  it('is a short, stable SHA-256 prefix that differs for different values', () => {
+    expect(credentialFingerprint('1//token')).toBe(credentialFingerprint('1//token'));
+    expect(credentialFingerprint('1//token')).toMatch(/^[0-9a-f]{12}$/);
+    expect(credentialFingerprint('1//token')).not.toBe(credentialFingerprint('1//tokem'));
+  });
+});
 
 describe('encodeHeader', () => {
   it('leaves plain ASCII alone', () => {

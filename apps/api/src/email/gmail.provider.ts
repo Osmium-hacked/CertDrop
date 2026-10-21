@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { contentDisposition } from '../lib/storage';
 import {
@@ -19,6 +19,14 @@ const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 
 const TokenResponseSchema = z.object({ access_token: z.string(), expires_in: z.number() });
 const SendResponseSchema = z.object({ id: z.string() });
+
+/**
+ * The first 12 hex characters of a credential's SHA-256: safe to log or print, and enough to tell
+ * whether two places hold the same value.
+ */
+export function credentialFingerprint(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
+}
 
 export interface GmailCredentials {
   clientId: string;

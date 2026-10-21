@@ -928,7 +928,10 @@ Each folder is one feature: its routes, plus its logic when there's enough to se
   - Starts a temporary local web server and prints a Google sign-in link asking only for
     permission to send email.
   - Uses PKCE and a random `state` value, so an intercepted or forged redirect is useless.
-  - Exchanges the returned code for tokens and prints `GMAIL_REFRESH_TOKEN`.
+  - Exchanges the returned code for tokens and saves `GMAIL_REFRESH_TOKEN` in `apps/api/.env`
+    rather than printing it: a long value copied out of a wrapped terminal line is easily
+    damaged. It prints the token's fingerprint, which the server also logs at startup
+    (`gmail credentials loaded`), so the deployed value can be checked without revealing it.
   - With an address argument, sends a test email to confirm everything works.
 
 **`scripts/make-sample-template.ts`**

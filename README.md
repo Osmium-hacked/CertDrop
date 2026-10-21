@@ -237,7 +237,9 @@ API. When the service has been asleep, the first visit takes about a minute; the
    5. On your computer, put them in `apps/api/.env` as `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`,
       then run `pnpm --filter @certdrop/api gmail:token you@gmail.com`. Open the printed link, sign
       in, choose **Advanced → Go to (app name)** on the "Google hasn't verified this app" screen, and
-      allow sending email. The script prints `GMAIL_REFRESH_TOKEN` and sends you a test email.
+      allow sending email. The script saves `GMAIL_REFRESH_TOKEN` in `apps/api/.env` (copy it from
+      there; it isn't printed), shows its fingerprint and sends you a test email. After deploying,
+      Render's log line `gmail credentials loaded` shows the same fingerprint if the value matches.
 4. **Turnstile:** in the Cloudflare dashboard, add a widget for the hostname `YOUR-APP.vercel.app`.
    The site key goes to Vercel, the secret key to Render.
 5. **Render:** **New → Blueprint**, pick this repository. Fill in the prompted values:

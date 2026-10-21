@@ -2,11 +2,12 @@
 // Usage: put GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET (a "Desktop app" OAuth client) in apps/api/.env, then
 //   pnpm --filter @certdrop/api gmail:token [address-for-a-test-email]
 // Open the printed link, sign in with the sending Gmail account and allow access. The token is
-// printed here; it's only ever sent to Google.
+// saved to apps/api/.env (never printed); it's only ever sent to Google.
 import { createHash, randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { z } from 'zod';
-import { GmailEmailProvider } from '../src/email/gmail.provider';
+import { credentialFingerprint, GmailEmailProvider } from '../src/email/gmail.provider';
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const TIMEOUT_MS = 5 * 60_000;
@@ -88,8 +89,22 @@ if (!res.ok) {
 }
 const { refresh_token: refreshToken } = z.object({ refresh_token: z.string() }).parse(await res.json());
 
-console.log(`GMAIL_REFRESH_TOKEN=${refreshToken}\n`);
-console.log('Paste that into Render. Keep it secret: it lets anyone send mail as this account.');
+// Saved to the gitignored .env rather than printed: copying a long value out of a terminal that
+// wrapped it is error-prone. Only a fingerprint is shown, to compare with the server's startup log.
+const envFile = '.env';
+const line = `GMAIL_REFRESH_TOKEN=${refreshToken}`;
+const current = existsSync(envFile) ? readFileSync(envFile, 'utf8') : '';
+writeFileSync(
+  envFile,
+  /^GMAIL_REFRESH_TOKEN=.*$/m.test(current)
+    ? current.replace(/^GMAIL_REFRESH_TOKEN=.*$/m, line)
+    : `${current.replace(/\n?$/, '\n')}${line}\n`,
+);
+console.log(
+  `Saved GMAIL_REFRESH_TOKEN to apps/api/.env (${refreshToken.length} characters, ` +
+    `fingerprint ${credentialFingerprint(refreshToken)}).`,
+);
+console.log('Copy the value from that file into Render. Keep it secret: it can send mail as this account.');
 
 if (testRecipient) {
   const provider = new GmailEmailProvider({ clientId, clientSecret, refreshToken }, testRecipient);
