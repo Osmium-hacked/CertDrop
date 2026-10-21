@@ -14,6 +14,8 @@ services:
     # Applies pending migrations, then starts the API.
     dockerCommand: sh docker-start.sh
     plan: free
+    # Next to the Neon database (AWS us-east-2): every request makes several queries.
+    region: ohio
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
