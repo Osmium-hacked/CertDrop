@@ -57,6 +57,22 @@ describe('loadEnv', () => {
     );
   });
 
+  it('removes whitespace from credentials pasted across wrapped lines', () => {
+    const env = loadEnv({
+      ...BASE_TEST_ENV,
+      EMAIL_PROVIDER: 'gmail',
+      GMAIL_CLIENT_ID: ' id.apps.googleusercontent.com\n',
+      GMAIL_CLIENT_SECRET: 'GOCSPX-abc ',
+      GMAIL_REFRESH_TOKEN: '1//0gAbC\r\nDeF-ghi',
+      S3_ACCESS_KEY_ID: 'abc\n123',
+    });
+    expect(env.GMAIL_CLIENT_ID).toBe('id.apps.googleusercontent.com');
+    expect(env.GMAIL_CLIENT_SECRET).toBe('GOCSPX-abc');
+    expect(env.GMAIL_REFRESH_TOKEN).toBe('1//0gAbCDeF-ghi');
+    expect(env.S3_ACCESS_KEY_ID).toBe('abc123');
+    expect(() => loadEnv({ ...BASE_TEST_ENV, S3_SECRET_ACCESS_KEY: ' \n ' })).toThrow(/S3_SECRET_ACCESS_KEY/);
+  });
+
   it('runs the worker in the API only when asked', () => {
     expect(loadEnv(BASE_TEST_ENV).RUN_WORKER_IN_API).toBe(false);
     expect(loadEnv({ ...BASE_TEST_ENV, RUN_WORKER_IN_API: 'true' }).RUN_WORKER_IN_API).toBe(true);

@@ -11,6 +11,15 @@ const csv = z
       .filter(Boolean),
   );
 
+/**
+ * An API key, secret or token. None contain whitespace, so any is removed: a value copied from a
+ * terminal that wrapped it can carry line breaks, which providers reject as an invalid credential.
+ */
+const credential = z
+  .string()
+  .transform((s) => s.replace(/\s+/g, ''))
+  .pipe(z.string().min(1));
+
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_VERSION: z.string().default('dev'),
@@ -32,8 +41,8 @@ const EnvSchema = z.object({
   S3_ENDPOINT: z.url().optional(),
   S3_REGION: z.string().default('auto'),
   S3_BUCKET: z.string().min(3),
-  S3_ACCESS_KEY_ID: z.string().min(1),
-  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_ACCESS_KEY_ID: credential,
+  S3_SECRET_ACCESS_KEY: credential,
   /** RustFS/MinIO need path-style URLs (http://host/bucket/key); R2 and AWS work with virtual-hosted style. */
   S3_FORCE_PATH_STYLE: z.stringbool().default(false),
 
@@ -55,11 +64,11 @@ const EnvSchema = z.object({
    * The display name is set per email.
    */
   EMAIL_FROM_ADDRESS: z.email().default('certificates@certdrop.local'),
-  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_API_KEY: credential.optional(),
   /** Google OAuth client and the refresh token from `pnpm --filter @certdrop/api gmail:token`. */
-  GMAIL_CLIENT_ID: z.string().min(1).optional(),
-  GMAIL_CLIENT_SECRET: z.string().min(1).optional(),
-  GMAIL_REFRESH_TOKEN: z.string().min(1).optional(),
+  GMAIL_CLIENT_ID: credential.optional(),
+  GMAIL_CLIENT_SECRET: credential.optional(),
+  GMAIL_REFRESH_TOKEN: credential.optional(),
   MAIL_OUTBOX_DIR: z.string().default('.mail-outbox'),
   /**
    * Emails per second across the worker. Resend's default limit is 2/s; going over it just
@@ -72,7 +81,7 @@ const EnvSchema = z.object({
   FONTS_DIR: z.string().default('../../packages/shared/fonts'),
 
   /** Cloudflare Turnstile secret. Unset = no human check (development only; required in production). */
-  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  TURNSTILE_SECRET_KEY: credential.optional(),
   /** Signing secret ("whsec_...") for Resend delivery/bounce webhooks. Unset = webhook disabled. */
   RESEND_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
 
