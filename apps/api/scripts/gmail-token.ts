@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { credentialFingerprint, GmailEmailProvider } from '../src/email/gmail.provider';
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
-const TIMEOUT_MS = 5 * 60_000;
+const TIMEOUT_MS = 15 * 60_000;
 
 const clientId = process.env.GMAIL_CLIENT_ID;
 const clientSecret = process.env.GMAIL_CLIENT_SECRET;
@@ -46,7 +46,7 @@ const code = await new Promise<{ code: string; redirectUri: string }>((resolve, 
   let redirectUri = '';
   const timer = setTimeout(() => {
     server.close();
-    reject(new Error('Timed out after 5 minutes'));
+    reject(new Error('Timed out after 15 minutes'));
   }, TIMEOUT_MS);
 
   // Desktop OAuth clients accept any loopback port, so let the OS pick a free one.
