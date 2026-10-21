@@ -202,13 +202,20 @@ CertDrop is a **monorepo**: one repository holding three packages that depend on
 **`README.md`**
 
 - **Why:** The front page of the project.
-- **What:** Features, architecture diagrams, local setup, every environment variable, how testing
-  works, step-by-step deployment, design decisions and trade-offs, security notes and known
-  limitations.
+- **What:** The live demo link, screenshots, features, tech stack, architecture diagrams, local
+  setup, every environment variable, how testing works, step-by-step deployment, design decisions
+  and trade-offs, security notes and known limitations.
 
 **`docs/CODEBASE.md`**
 
 - **Why:** This file: a guide to every file.
+
+**`docs/screenshots/*.png`**: `home.png`, `layout-editor.png`, `participants.png`, `confirm.png`,
+`progress.png`, `verify.png`
+
+- **Why:** Show the product in the README without having to run it.
+- **What:** Captured from the real app with Playwright, walking the same journey as the browser
+  test with the seed template and CSV.
 
 ---
 

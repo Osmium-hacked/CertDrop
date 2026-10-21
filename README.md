@@ -1,20 +1,67 @@
 # CertDrop
 
-Upload a CSV and a certificate design. Every participant gets a personalized PDF certificate in their
-inbox, with a public verification link and QR code that anyone can check.
+**Bulk certificates, delivered and verifiable.** Upload a CSV of participants and your certificate
+design; every participant gets a personalized PDF certificate in their inbox, with a QR code and a
+public link that anyone can use to check it's genuine.
 
-- **Passwordless organizers.** Email one-time code, Cloudflare Turnstile, no accounts to manage.
-- **Visual layout editor.** Drag a name box onto your PNG, JPG or PDF design. A live preview shows
-  how the longest real name will fit, using the same layout code as the PDF renderer.
-- **CSV that forgives real exports.** Column detection ("Full Name", "E-mail Address", first + last
-  name), row validation, inline fixes and duplicate detection.
-- **Background generation and sending.** A job worker renders PDFs and emails them at a safe rate,
-  with retries, live progress, "Retry failed" and a streamed ZIP download. It runs as its own
-  process, or inside the API on single-instance free hosting.
-- **Runs on free tiers.** Vercel, Render, Neon, Cloudflare R2 and the Gmail API, with no domain
-  needed. See [Deployment](#deployment).
-- **Public verification.** `/verify/CD-…` confirms a certificate, or reports it revoked, without
-  exposing anyone's email address.
+[![CI](https://github.com/Osmium-hacked/CertDrop/actions/workflows/ci.yml/badge.svg)](https://github.com/Osmium-hacked/CertDrop/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/live-certdrop--osmium.vercel.app-6e5fd6)](https://certdrop-osmium.vercel.app)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
+![Tests](https://img.shields.io/badge/tests-225%20%2B%20e2e-2ea44f)
+
+**Try it:** [certdrop-osmium.vercel.app](https://certdrop-osmium.vercel.app). It runs on free
+hosting, so if nobody has used it for a while the first visit takes about a minute while the server
+wakes up (the page tells you when it's ready).
+
+![CertDrop home page](docs/screenshots/home.png)
+
+## What it does
+
+Organizers sign in with a 6-digit code sent by email (no passwords or accounts, behind a Cloudflare
+Turnstile check), then go through three steps:
+
+| **Place the name.** Drop in a PNG, JPG or PDF design and drag a name box, and an optional QR code, onto it. Long names shrink and wrap in the preview exactly as they will print. | **Check the list.** Columns like "Full Name" or "E-mail Address" are detected and every row is validated: empty names, bad or duplicate emails, unprintable scripts. Fix rows inline or skip them. |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Layout editor](docs/screenshots/layout-editor.png)                                                                                                                              | ![CSV review](docs/screenshots/participants.png)                                                                                                                                                   |
+| **Review and send.** A preview of a real participant's certificate and a summary of what will go out.                                                                             | **Track delivery.** Certificates are rendered and emailed in the background with live progress, automatic retries, "Retry failed", per-certificate download, revoke, and a ZIP of everything.      |
+| ![Confirm and send](docs/screenshots/confirm.png)                                                                                                                                 | ![Sending progress](docs/screenshots/progress.png)                                                                                                                                                 |
+
+**Recipients verify** by scanning the QR code or opening the link in their email. The public page
+confirms the name, event, issuer and date, says if a certificate was revoked, and never shows an
+email address.
+
+![Verification page](docs/screenshots/verify.png)
+
+## Highlights
+
+- **What you see is what prints.** One name-fitting algorithm, shared by the browser preview
+  (canvas) and the server renderer (pdf-lib), using the same font files and metrics. Names in Latin,
+  Vietnamese, Greek and Cyrillic render correctly, with per-word fallback to Noto Sans.
+- **Reliable background jobs.** A pg-boss queue in Postgres (no Redis). Every state change is an
+  idempotent conditional update, so duplicate or late jobs are harmless; failures are recorded per
+  row and retried only at the stage that failed.
+- **Secure by default.** Hashed one-time codes with attempt limits, HttpOnly SameSite cookies, a
+  strict Content-Security-Policy, file type checked from the bytes (with a decompression-bomb
+  guard), spreadsheet formula stripping, per-IP rate limits and per-organizer quotas, signed
+  webhooks, and logs that never contain addresses or codes.
+- **Private by design.** Templates and PDFs are deleted after 30 days; certificate records stay so
+  verification links keep working. See the [privacy policy](https://certdrop-osmium.vercel.app/privacy).
+- **Tested end to end.** 225 unit and integration tests (against real Postgres and S3-compatible
+  storage) plus a Playwright test of the whole journey, run in CI on every push.
+- **Deployed for $0.** Vercel, Render, Neon, Cloudflare R2 and the Gmail API on free plans, with no
+  domain. See [Deployment](#deployment).
+
+## Tech stack
+
+| Area           | Built with                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Web app        | React 19, Vite, TypeScript, Tailwind CSS 4, TanStack Query, React Router, Konva (layout editor), pdf.js, Papa Parse, Framer Motion |
+| API and worker | Node 24, Fastify 5, Zod, Prisma (PostgreSQL), pg-boss, pdf-lib + fontkit, AWS SDK v3 (S3), jose (JWT), pino                        |
+| Shared         | A TypeScript package of schemas and pure logic (validation, name fitting, font coverage) used by both sides                        |
+| Infrastructure | Vercel, Render (Docker), Neon Postgres, Cloudflare R2 and Turnstile, Gmail API (or Resend)                                         |
+| Quality        | Vitest, Playwright, ESLint (type-aware), Prettier, GitHub Actions                                                                  |
+
+A file-by-file guide to the codebase is in [docs/CODEBASE.md](docs/CODEBASE.md).
 
 ## Contents
 
