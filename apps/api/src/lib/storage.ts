@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutBucketCorsCommand,
   PutObjectCommand,
   S3Client,
@@ -77,7 +78,9 @@ export class S3Storage implements Storage {
   ) {}
 
   async ping(): Promise<void> {
-    await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+    // Listing (not HeadBucket) because R2 tokens scoped to one bucket are only documented to
+    // allow object reads, writes and lists.
+    await this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, MaxKeys: 1 }));
   }
 
   presignPut(
